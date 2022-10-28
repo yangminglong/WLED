@@ -53,53 +53,63 @@
 #define I_8266_U1_TM2_3 18
 #define I_8266_DM_TM2_3 19
 #define I_8266_BB_TM2_3 20
+//400Kbps RGBW
+#define I_8266_U0_400_4 21
+#define I_8266_U1_400_4 22
+#define I_8266_DM_400_4 23
+#define I_8266_BB_400_4 24
 
 /*** ESP32 Neopixel methods ***/
 //RGB
-#define I_32_RN_NEO_3 21
-#define I_32_I0_NEO_3 22
-#define I_32_I1_NEO_3 23
-#define I_32_BB_NEO_3 24  // bitbangging on ESP32 not recommended
+#define I_32_RN_NEO_3 25
+#define I_32_I0_NEO_3 26
+#define I_32_I1_NEO_3 27
+#define I_32_BB_NEO_3 28  // bitbangging on ESP32 not recommended
 //RGBW
-#define I_32_RN_NEO_4 25
-#define I_32_I0_NEO_4 26
-#define I_32_I1_NEO_4 27
-#define I_32_BB_NEO_4 28  // bitbangging on ESP32 not recommended
+#define I_32_RN_NEO_4 29
+#define I_32_I0_NEO_4 30
+#define I_32_I1_NEO_4 31
+#define I_32_BB_NEO_4 32  // bitbangging on ESP32 not recommended
 //400Kbps
-#define I_32_RN_400_3 29
-#define I_32_I0_400_3 30
-#define I_32_I1_400_3 31
-#define I_32_BB_400_3 32  // bitbangging on ESP32 not recommended
+#define I_32_RN_400_3 33
+#define I_32_I0_400_3 34
+#define I_32_I1_400_3 35
+#define I_32_BB_400_3 36  // bitbangging on ESP32 not recommended
 //TM1814 (RGBW)
-#define I_32_RN_TM1_4 33
-#define I_32_I0_TM1_4 34
-#define I_32_I1_TM1_4 35
+#define I_32_RN_TM1_4 37
+#define I_32_I0_TM1_4 38
+#define I_32_I1_TM1_4 39
 //Bit Bang theoratically possible, but very undesirable and not needed (no pin restrictions on RMT and I2S)
 //TM1829 (RGB)
-#define I_32_RN_TM2_3 36
-#define I_32_I0_TM2_3 37
-#define I_32_I1_TM2_3 38
+#define I_32_RN_TM2_3 40
+#define I_32_I0_TM2_3 41
+#define I_32_I1_TM2_3 42
 //Bit Bang theoratically possible, but very undesirable and not needed (no pin restrictions on RMT and I2S)
+//400Kbps RGBW
+#define I_32_RN_400_4 43
+#define I_32_I0_400_4 44
+#define I_32_I1_400_4 45
+#define I_32_BB_400_4 46  // bitbangging on ESP32 not recommended
 
 //APA102
-#define I_HS_DOT_3 39 //hardware SPI
-#define I_SS_DOT_3 40 //soft SPI
+#define I_HS_DOT_3 47 //hardware SPI
+#define I_SS_DOT_3 48 //soft SPI
 
 //LPD8806
-#define I_HS_LPD_3 41
-#define I_SS_LPD_3 42
+#define I_HS_LPD_3 49
+#define I_SS_LPD_3 50
 
 //WS2801
-#define I_HS_WS1_3 43
-#define I_SS_WS1_3 44
+#define I_HS_WS1_3 51
+#define I_SS_WS1_3 52
 
 //P9813
-#define I_HS_P98_3 45
-#define I_SS_P98_3 46
+#define I_HS_P98_3 53
+#define I_SS_P98_3 54
 
 //LPD6803
-#define I_HS_LPO_3 47
-#define I_SS_LPO_3 48
+#define I_HS_LPO_3 55
+#define I_SS_LPO_3 56
 
 
 /*** ESP8266 Neopixel methods ***/
@@ -129,6 +139,11 @@
 #define B_8266_U1_TM2_4 NeoPixelBrightnessBus<NeoBrgFeature, NeoEsp8266Uart1Tm1829Method>
 #define B_8266_DM_TM2_4 NeoPixelBrightnessBus<NeoBrgFeature, NeoEsp8266DmaTm1829Method>
 #define B_8266_BB_TM2_4 NeoPixelBrightnessBus<NeoBrgFeature, NeoEsp8266BitBangTm1829Method>
+//400Kbps RGBW
+#define B_8266_U0_400_4 NeoPixelBrightnessBus<NeoGrbwFeature, NeoEsp8266Uart0400KbpsMethod>   //4 chan, esp8266, gpio1
+#define B_8266_U1_400_4 NeoPixelBrightnessBus<NeoGrbwFeature, NeoEsp8266Uart1400KbpsMethod>   //4 chan, esp8266, gpio2
+#define B_8266_DM_400_4 NeoPixelBrightnessBus<NeoGrbwFeature, NeoEsp8266Dma400KbpsMethod>     //4 chan, esp8266, gpio3
+#define B_8266_BB_400_4 NeoPixelBrightnessBus<NeoGrbwFeature, NeoEsp8266BitBang400KbpsMethod> //4 chan, esp8266, bb (any pin)
 #endif
 
 /*** ESP32 Neopixel methods ***/
@@ -178,6 +193,15 @@
 #define B_32_I1_TM2_3 NeoPixelBrightnessBus<NeoBrgFeature, NeoEsp32I2s1Tm1829Method>
 #endif
 //Bit Bang theoratically possible, but very undesirable and not needed (no pin restrictions on RMT and I2S)
+//400Kbps RGBW
+#define B_32_RN_400_4 NeoPixelBrightnessBus<NeoGrbwFeature, NeoEsp32RmtN400KbpsMethod>
+#ifndef WLED_NO_I2S0_PIXELBUS
+#define B_32_I0_400_4 NeoPixelBrightnessBus<NeoGrbwFeature, NeoEsp32I2s0400KbpsMethod>
+#endif
+#ifndef WLED_NO_I2S1_PIXELBUS
+#define B_32_I1_400_4 NeoPixelBrightnessBus<NeoGrbwFeature, NeoEsp32I2s1400KbpsMethod>
+#endif
+//#define B_32_BB_400_4 NeoPixelBrightnessBus<NeoGrbwFeature, NeoEsp32BitBang400KbpsMethod> // NeoEsp8266BitBang400KbpsMethod
 
 #endif
 
@@ -250,6 +274,10 @@ class PolyBus {
       case I_8266_U1_TM2_3: (static_cast<B_8266_U1_TM2_4*>(busPtr))->Begin(); break;
       case I_8266_DM_TM2_3: (static_cast<B_8266_DM_TM2_4*>(busPtr))->Begin(); break;
       case I_8266_BB_TM2_3: (static_cast<B_8266_BB_TM2_4*>(busPtr))->Begin(); break;
+      case I_8266_U0_400_4: (static_cast<B_8266_U0_400_4*>(busPtr))->Begin(); break;
+      case I_8266_U1_400_4: (static_cast<B_8266_U1_400_4*>(busPtr))->Begin(); break;
+      case I_8266_DM_400_4: (static_cast<B_8266_DM_400_4*>(busPtr))->Begin(); break;
+      case I_8266_BB_400_4: (static_cast<B_8266_BB_400_4*>(busPtr))->Begin(); break;
       case I_HS_DOT_3: (static_cast<B_HS_DOT_3*>(busPtr))->Begin(); break;
       case I_HS_LPD_3: (static_cast<B_HS_LPD_3*>(busPtr))->Begin(); break;
       case I_HS_LPO_3: (static_cast<B_HS_LPO_3*>(busPtr))->Begin(); break;
@@ -291,6 +319,14 @@ class PolyBus {
       case I_32_I1_TM1_4: beginTM1814<B_32_I1_TM1_4*>(busPtr); break;
       case I_32_I1_TM2_3: (static_cast<B_32_I1_TM2_3*>(busPtr))->Begin(); break;
       #endif
+      case I_32_RN_400_4: (static_cast<B_32_RN_400_4*>(busPtr))->Begin(); break;
+      #ifndef WLED_NO_I2S0_PIXELBUS
+      case I_32_I0_400_4: (static_cast<B_32_I0_400_4*>(busPtr))->Begin(); break;
+      #endif
+      #ifndef WLED_NO_I2S1_PIXELBUS
+      case I_32_I1_400_4: (static_cast<B_32_I1_400_4*>(busPtr))->Begin(); break;
+      #endif
+//      case I_32_BB_400_3: (static_cast<B_32_BB_400_3*>(busPtr))->Begin(); break;
       // ESP32 can (and should, to avoid inadvertantly driving the chip select signal) specify the pins used for SPI, but only in begin()
       case I_HS_DOT_3: (static_cast<B_HS_DOT_3*>(busPtr))->Begin(pins[1], -1, pins[0], -1); break;
       case I_HS_LPD_3: (static_cast<B_HS_LPD_3*>(busPtr))->Begin(pins[1], -1, pins[0], -1); break;
@@ -330,6 +366,10 @@ class PolyBus {
       case I_8266_U1_TM2_3: busPtr = new B_8266_U1_TM2_4(len, pins[0]); break;
       case I_8266_DM_TM2_3: busPtr = new B_8266_DM_TM2_4(len, pins[0]); break;
       case I_8266_BB_TM2_3: busPtr = new B_8266_BB_TM2_4(len, pins[0]); break;
+      case I_8266_U0_400_4: busPtr = new B_8266_U0_400_4(len, pins[0]); break;
+      case I_8266_U1_400_4: busPtr = new B_8266_U1_400_4(len, pins[0]); break;
+      case I_8266_DM_400_4: busPtr = new B_8266_DM_400_4(len, pins[0]); break;
+      case I_8266_BB_400_4: busPtr = new B_8266_BB_400_4(len, pins[0]); break;
     #endif
     #ifdef ARDUINO_ARCH_ESP32
       case I_32_RN_NEO_3: busPtr = new B_32_RN_NEO_3(len, pins[0], (NeoBusChannel)channel); break;
@@ -366,6 +406,14 @@ class PolyBus {
       case I_32_I1_TM1_4: busPtr = new B_32_I1_TM1_4(len, pins[0]); break;
       case I_32_I1_TM2_3: busPtr = new B_32_I1_TM2_3(len, pins[0]); break;
       #endif
+      case I_32_RN_400_4: busPtr = new B_32_RN_400_4(len, pins[0], (NeoBusChannel)channel); break;
+      #ifndef WLED_NO_I2S0_PIXELBUS
+      case I_32_I0_400_4: busPtr = new B_32_I0_400_4(len, pins[0]); break;
+      #endif
+      #ifndef WLED_NO_I2S1_PIXELBUS
+      case I_32_I1_400_4: busPtr = new B_32_I1_400_4(len, pins[0]); break;
+      #endif
+//      case I_32_BB_400_4: busPtr = new B_32_BB_400_4(len, pins[0], (NeoBusChannel)channel); break;
     #endif
       // for 2-wire: pins[1] is clk, pins[0] is dat.  begin expects (len, clk, dat)
       case I_HS_DOT_3: busPtr = new B_HS_DOT_3(len, pins[1], pins[0]); break;
@@ -406,6 +454,10 @@ class PolyBus {
       case I_8266_U1_TM2_3: (static_cast<B_8266_U1_TM2_4*>(busPtr))->Show(); break;
       case I_8266_DM_TM2_3: (static_cast<B_8266_DM_TM2_4*>(busPtr))->Show(); break;
       case I_8266_BB_TM2_3: (static_cast<B_8266_BB_TM2_4*>(busPtr))->Show(); break;
+      case I_8266_U0_400_4: (static_cast<B_8266_U0_400_4*>(busPtr))->Show(); break;
+      case I_8266_U1_400_4: (static_cast<B_8266_U1_400_4*>(busPtr))->Show(); break;
+      case I_8266_DM_400_4: (static_cast<B_8266_DM_400_4*>(busPtr))->Show(); break;
+      case I_8266_BB_400_4: (static_cast<B_8266_BB_400_4*>(busPtr))->Show(); break;
     #endif
     #ifdef ARDUINO_ARCH_ESP32
       case I_32_RN_NEO_3: (static_cast<B_32_RN_NEO_3*>(busPtr))->Show(); break;
@@ -442,6 +494,14 @@ class PolyBus {
       case I_32_I1_TM1_4: (static_cast<B_32_I1_TM1_4*>(busPtr))->Show(); break;
       case I_32_I1_TM2_3: (static_cast<B_32_I1_TM2_3*>(busPtr))->Show(); break;
       #endif
+      case I_32_RN_400_4: (static_cast<B_32_RN_400_4*>(busPtr))->Show(); break;
+      #ifndef WLED_NO_I2S0_PIXELBUS
+      case I_32_I0_400_4: (static_cast<B_32_I0_400_4*>(busPtr))->Show(); break;
+      #endif
+      #ifndef WLED_NO_I2S1_PIXELBUS
+      case I_32_I1_400_4: (static_cast<B_32_I1_400_4*>(busPtr))->Show(); break;
+      #endif
+//      case I_32_BB_400_4: (static_cast<B_32_BB_400_4*>(busPtr))->Show(); break;
     #endif
       case I_HS_DOT_3: (static_cast<B_HS_DOT_3*>(busPtr))->Show(); break;
       case I_SS_DOT_3: (static_cast<B_SS_DOT_3*>(busPtr))->Show(); break;
@@ -479,6 +539,10 @@ class PolyBus {
       case I_8266_U1_TM2_3: return (static_cast<B_8266_U1_TM2_4*>(busPtr))->CanShow(); break;
       case I_8266_DM_TM2_3: return (static_cast<B_8266_DM_TM2_4*>(busPtr))->CanShow(); break;
       case I_8266_BB_TM2_3: return (static_cast<B_8266_BB_TM2_4*>(busPtr))->CanShow(); break;
+      case I_8266_U0_400_4: return (static_cast<B_8266_U0_400_4*>(busPtr))->CanShow(); break;
+      case I_8266_U1_400_4: return (static_cast<B_8266_U1_400_4*>(busPtr))->CanShow(); break;
+      case I_8266_DM_400_4: return (static_cast<B_8266_DM_400_4*>(busPtr))->CanShow(); break;
+      case I_8266_BB_400_4: return (static_cast<B_8266_BB_400_4*>(busPtr))->CanShow(); break;
     #endif
     #ifdef ARDUINO_ARCH_ESP32
       case I_32_RN_NEO_3: return (static_cast<B_32_RN_NEO_3*>(busPtr))->CanShow(); break;
@@ -515,6 +579,14 @@ class PolyBus {
       case I_32_I1_TM1_4: return (static_cast<B_32_I1_TM1_4*>(busPtr))->CanShow(); break;
       case I_32_I1_TM2_3: return (static_cast<B_32_I1_TM2_3*>(busPtr))->CanShow(); break;
       #endif
+      case I_32_RN_400_4: return (static_cast<B_32_RN_400_4*>(busPtr))->CanShow(); break;
+      #ifndef WLED_NO_I2S0_PIXELBUS
+      case I_32_I0_400_4: return (static_cast<B_32_I0_400_4*>(busPtr))->CanShow(); break;
+      #endif
+      #ifndef WLED_NO_I2S1_PIXELBUS
+      case I_32_I1_400_4: return (static_cast<B_32_I1_400_4*>(busPtr))->CanShow(); break;
+      #endif
+//      case I_32_BB_400_4: return (static_cast<B_32_BB_400_4*>(busPtr))->CanShow(); break;
     #endif
       case I_HS_DOT_3: return (static_cast<B_HS_DOT_3*>(busPtr))->CanShow(); break;
       case I_SS_DOT_3: return (static_cast<B_SS_DOT_3*>(busPtr))->CanShow(); break;
@@ -576,6 +648,10 @@ class PolyBus {
       case I_8266_U1_TM2_3: (static_cast<B_8266_U1_TM2_4*>(busPtr))->SetPixelColor(pix, RgbColor(col.R,col.G,col.B)); break;
       case I_8266_DM_TM2_3: (static_cast<B_8266_DM_TM2_4*>(busPtr))->SetPixelColor(pix, RgbColor(col.R,col.G,col.B)); break;
       case I_8266_BB_TM2_3: (static_cast<B_8266_BB_TM2_4*>(busPtr))->SetPixelColor(pix, RgbColor(col.R,col.G,col.B)); break;
+      case I_8266_U0_400_4: (static_cast<B_8266_U0_400_4*>(busPtr))->SetPixelColor(pix, col); break;
+      case I_8266_U1_400_4: (static_cast<B_8266_U1_400_4*>(busPtr))->SetPixelColor(pix, col); break;
+      case I_8266_DM_400_4: (static_cast<B_8266_DM_400_4*>(busPtr))->SetPixelColor(pix, col); break;
+      case I_8266_BB_400_4: (static_cast<B_8266_BB_400_4*>(busPtr))->SetPixelColor(pix, col); break;
     #endif
     #ifdef ARDUINO_ARCH_ESP32
       case I_32_RN_NEO_3: (static_cast<B_32_RN_NEO_3*>(busPtr))->SetPixelColor(pix, RgbColor(col.R,col.G,col.B)); break;
@@ -612,6 +688,14 @@ class PolyBus {
       case I_32_I1_TM1_4: (static_cast<B_32_I1_TM1_4*>(busPtr))->SetPixelColor(pix, col); break;
       case I_32_I1_TM2_3: (static_cast<B_32_I1_TM2_3*>(busPtr))->SetPixelColor(pix, RgbColor(col.R,col.G,col.B)); break;
       #endif
+      case I_32_RN_400_4: (static_cast<B_32_RN_400_4*>(busPtr))->SetPixelColor(pix, col); break;
+      #ifndef WLED_NO_I2S0_PIXELBUS
+      case I_32_I0_400_4: (static_cast<B_32_I0_400_4*>(busPtr))->SetPixelColor(pix, col); break;
+      #endif
+      #ifndef WLED_NO_I2S1_PIXELBUS
+      case I_32_I1_400_4: (static_cast<B_32_I1_400_4*>(busPtr))->SetPixelColor(pix, col); break;
+      #endif
+//      case I_32_BB_400_4: (static_cast<B_32_BB_400_4*>(busPtr))->SetPixelColor(pix, col); break;
     #endif
       case I_HS_DOT_3: (static_cast<B_HS_DOT_3*>(busPtr))->SetPixelColor(pix, RgbColor(col.R,col.G,col.B)); break;
       case I_SS_DOT_3: (static_cast<B_SS_DOT_3*>(busPtr))->SetPixelColor(pix, RgbColor(col.R,col.G,col.B)); break;
@@ -649,6 +733,10 @@ class PolyBus {
       case I_8266_U1_TM2_3: (static_cast<B_8266_U1_TM2_4*>(busPtr))->SetBrightness(b); break;
       case I_8266_DM_TM2_3: (static_cast<B_8266_DM_TM2_4*>(busPtr))->SetBrightness(b); break;
       case I_8266_BB_TM2_3: (static_cast<B_8266_BB_TM2_4*>(busPtr))->SetBrightness(b); break;
+      case I_8266_U0_400_4: (static_cast<B_8266_U0_400_4*>(busPtr))->SetBrightness(b); break;
+      case I_8266_U1_400_4: (static_cast<B_8266_U1_400_4*>(busPtr))->SetBrightness(b); break;
+      case I_8266_DM_400_4: (static_cast<B_8266_DM_400_4*>(busPtr))->SetBrightness(b); break;
+      case I_8266_BB_400_4: (static_cast<B_8266_BB_400_4*>(busPtr))->SetBrightness(b); break;
     #endif
     #ifdef ARDUINO_ARCH_ESP32
       case I_32_RN_NEO_3: (static_cast<B_32_RN_NEO_3*>(busPtr))->SetBrightness(b); break;
@@ -685,6 +773,14 @@ class PolyBus {
       case I_32_I1_TM1_4: (static_cast<B_32_I1_TM1_4*>(busPtr))->SetBrightness(b); break;
       case I_32_I1_TM2_3: (static_cast<B_32_I1_TM2_3*>(busPtr))->SetBrightness(b); break;
       #endif
+      case I_32_RN_400_4: (static_cast<B_32_RN_400_4*>(busPtr))->SetBrightness(b); break;
+      #ifndef WLED_NO_I2S0_PIXELBUS
+      case I_32_I0_400_4: (static_cast<B_32_I0_400_4*>(busPtr))->SetBrightness(b); break;
+      #endif
+      #ifndef WLED_NO_I2S1_PIXELBUS
+      case I_32_I1_400_4: (static_cast<B_32_I1_400_4*>(busPtr))->SetBrightness(b); break;
+      #endif
+//      case I_32_BB_400_4: (static_cast<B_32_BB_400_4*>(busPtr))->SetBrightness(b); break;
     #endif
       case I_HS_DOT_3: (static_cast<B_HS_DOT_3*>(busPtr))->SetBrightness(b); break;
       case I_SS_DOT_3: (static_cast<B_SS_DOT_3*>(busPtr))->SetBrightness(b); break;
@@ -723,6 +819,10 @@ class PolyBus {
       case I_8266_U1_TM2_3: col = (static_cast<B_8266_U1_TM2_4*>(busPtr))->GetPixelColor(pix); break;
       case I_8266_DM_TM2_3: col = (static_cast<B_8266_DM_TM2_4*>(busPtr))->GetPixelColor(pix); break;
       case I_8266_BB_TM2_3: col = (static_cast<B_8266_BB_TM2_4*>(busPtr))->GetPixelColor(pix); break;
+      case I_8266_U0_400_4: col = (static_cast<B_8266_U0_400_4*>(busPtr))->GetPixelColor(pix); break;
+      case I_8266_U1_400_4: col = (static_cast<B_8266_U1_400_4*>(busPtr))->GetPixelColor(pix); break;
+      case I_8266_DM_400_4: col = (static_cast<B_8266_DM_400_4*>(busPtr))->GetPixelColor(pix); break;
+      case I_8266_BB_400_4: col = (static_cast<B_8266_BB_400_4*>(busPtr))->GetPixelColor(pix); break;
     #endif
     #ifdef ARDUINO_ARCH_ESP32
       case I_32_RN_NEO_3: col = (static_cast<B_32_RN_NEO_3*>(busPtr))->GetPixelColor(pix); break;
@@ -759,6 +859,14 @@ class PolyBus {
       case I_32_I1_TM1_4: col = (static_cast<B_32_I1_TM1_4*>(busPtr))->GetPixelColor(pix); break;
       case I_32_I1_TM2_3: col = (static_cast<B_32_I1_TM2_3*>(busPtr))->GetPixelColor(pix); break;
       #endif
+      case I_32_RN_400_4: col = (static_cast<B_32_RN_400_4*>(busPtr))->GetPixelColor(pix); break;
+      #ifndef WLED_NO_I2S0_PIXELBUS
+      case I_32_I0_400_4: col = (static_cast<B_32_I0_400_4*>(busPtr))->GetPixelColor(pix); break;
+      #endif
+      #ifndef WLED_NO_I2S1_PIXELBUS
+      case I_32_I1_400_4: col = (static_cast<B_32_I1_400_4*>(busPtr))->GetPixelColor(pix); break;
+      #endif
+//      case I_32_BB_400_4: col = (static_cast<B_32_BB_400_4*>(busPtr))->GetPixelColor(pix); break;
     #endif
       case I_HS_DOT_3: col = (static_cast<B_HS_DOT_3*>(busPtr))->GetPixelColor(pix); break;
       case I_SS_DOT_3: col = (static_cast<B_SS_DOT_3*>(busPtr))->GetPixelColor(pix); break;
@@ -816,6 +924,10 @@ class PolyBus {
       case I_8266_U1_TM2_3: delete (static_cast<B_8266_U1_TM2_4*>(busPtr)); break;
       case I_8266_DM_TM2_3: delete (static_cast<B_8266_DM_TM2_4*>(busPtr)); break;
       case I_8266_BB_TM2_3: delete (static_cast<B_8266_BB_TM2_4*>(busPtr)); break;
+      case I_8266_U0_400_4: delete (static_cast<B_8266_U0_400_4*>(busPtr)); break;
+      case I_8266_U1_400_4: delete (static_cast<B_8266_U1_400_4*>(busPtr)); break;
+      case I_8266_DM_400_4: delete (static_cast<B_8266_DM_400_4*>(busPtr)); break;
+      case I_8266_BB_400_4: delete (static_cast<B_8266_BB_400_4*>(busPtr)); break;
     #endif
     #ifdef ARDUINO_ARCH_ESP32
       case I_32_RN_NEO_3: delete (static_cast<B_32_RN_NEO_3*>(busPtr)); break;
@@ -852,6 +964,14 @@ class PolyBus {
       case I_32_I1_TM1_4: delete (static_cast<B_32_I1_TM1_4*>(busPtr)); break;
       case I_32_I1_TM2_3: delete (static_cast<B_32_I1_TM2_3*>(busPtr)); break;
       #endif
+      case I_32_RN_400_4: delete (static_cast<B_32_RN_400_4*>(busPtr)); break;
+      #ifndef WLED_NO_I2S0_PIXELBUS
+      case I_32_I0_400_4: delete (static_cast<B_32_I0_400_4*>(busPtr)); break;
+      #endif
+      #ifndef WLED_NO_I2S1_PIXELBUS
+      case I_32_I1_400_4: delete (static_cast<B_32_I1_400_4*>(busPtr)); break;
+      #endif
+//      case I_32_BB_400_4: delete (static_cast<B_32_BB_400_4*>(busPtr)); break;
     #endif
       case I_HS_DOT_3: delete (static_cast<B_HS_DOT_3*>(busPtr)); break;
       case I_SS_DOT_3: delete (static_cast<B_SS_DOT_3*>(busPtr)); break;
@@ -905,6 +1025,8 @@ class PolyBus {
           return I_8266_U0_TM1_4 + offset;
         case TYPE_TM1829:
           return I_8266_U0_TM2_3 + offset;
+        case TYPE_SK6812_400KHZ:
+          return I_8266_U0_400_4 + offset;
       }
       #else //ESP32
       uint8_t offset = 0; //0 = RMT (num 0-7) 8 = I2S0 9 = I2S1
@@ -937,6 +1059,8 @@ class PolyBus {
           return I_32_RN_TM1_4 + offset;
         case TYPE_TM1829:
           return I_32_RN_TM2_3 + offset;
+        case TYPE_SK6812_400KHZ:
+          return I_32_RN_400_4 + offset;
       }
       #endif
     }

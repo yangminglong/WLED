@@ -184,14 +184,14 @@
             if (t > 31 && t < 48) d.getElementsByName("LC"+n)[0].value = 1; // for sanity change analog count just to 1 LED
           }
           gId("rf"+n).onclick = (t == 31) ? (()=>{return false}) : (()=>{});  // prevent change for TM1814
-          isRGBW = (t == 30 || t == 31 || (t > 40 && t < 46 && t != 43) || t == 88); // RGBW checkbox, TYPE_xxxx values from const.h
+          isRGBW = ((t >= 30 && t <= 32) || (t > 40 && t < 46 && t != 43) || t == 88); // RGBW checkbox, TYPE_xxxx values from const.h
           gId("co"+n).style.display = ((t >= 80 && t < 96) || (t >= 40 && t < 48)) ? "none":"inline";  // hide color order for PWM
-          gId("dig"+n+"w").style.display = (t == 30 || t == 31) ? "inline":"none";  // show swap channels dropdown
-          if (!(t == 30 || t == 31)) d.getElementsByName("WO"+n)[0].value = 0; // reset swapping
+          gId("dig"+n+"w").style.display = (t >= 30 && t <= 32) ? "inline":"none";  // show swap channels dropdown
+          if (!(t >= 30 && t <= 32)) d.getElementsByName("WO"+n)[0].value = 0; // reset swapping
           gId("dig"+n+"c").style.display = (t >= 40 && t < 48) ? "none":"inline";  // hide count for analog
           gId("dig"+n+"r").style.display = (t >= 80 && t < 96) ? "none":"inline";  // hide reversed for virtual
           gId("dig"+n+"s").style.display = ((t >= 80 && t < 96) || (t >= 40 && t < 48)) ? "none":"inline";  // hide skip 1st for virtual & analog
-          gId("dig"+n+"f").style.display = ((t >= 16 && t < 32) || (t >= 50 && t < 64)) ? "inline":"none";  // hide refresh
+          gId("dig"+n+"f").style.display = ((t >= 16 && t < 31) || t == 32 || (t >= 50 && t < 64)) ? "inline":"none";  // hide refresh
           gId("dig"+n+"a").style.display = (isRGBW && t != 40) ? "inline":"none";  // auto calculate white
           gId("rev"+n).innerHTML = (t >= 40 && t < 48) ? "Inverted output":"Reversed (rotated 180°)";  // change reverse text for analog
           gId("psd"+n).innerHTML = (t >= 40 && t < 48) ? "Index:":"Start:";    // change analog start description
@@ -329,6 +329,7 @@ ${i+1}:
 <option value="30">SK6812 RGBW</option>
 <option value="31">TM1814</option>
 <option value="24">400kHz</option>
+<option value="32">400kHz RGBW</option>
 <option value="25">TM1829</option>
 <option value="50">WS2801</option>
 <option value="51">APA102</option>
