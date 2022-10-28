@@ -120,7 +120,7 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
         break;  // no parameter
       }
       awmode = request->arg(aw).toInt();
-      channelSwap = (type == TYPE_SK6812_RGBW || type == TYPE_TM1814) ? request->arg(wo).toInt() : 0;
+      channelSwap = (type == TYPE_SK6812_RGBW || type == TYPE_SK6812_400KHZ || type == TYPE_TM1814) ? request->arg(wo).toInt() : 0;
       // actual finalization is done in WLED::loop() (removing old busses and adding new)
       // this may happen even before this loop is finished so we do "doInitBusses" after the loop
       if (busConfigs[s] != nullptr) delete busConfigs[s];

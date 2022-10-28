@@ -149,7 +149,7 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
       }
 
       uint16_t length = elm["len"] | 1;
-      uint8_t colorOrder = (int)elm[F("order")];
+      uint8_t colorOrder = (int)elm[F("order")];  // includes W channel swap in upper nibble
       uint8_t skipFirst = elm[F("skip")];
       uint16_t start = elm["start"] | 0;
       if (length==0 || start + length > MAX_LEDS) continue; // zero length or we reached max. number of LEDs, just stop

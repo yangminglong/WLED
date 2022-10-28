@@ -162,25 +162,25 @@
 //                                              - 0b111 (dec. 112-127) unused/reserved
 //bit 7 is reserved and set to 0
 
-#define TYPE_NONE                 0            //light is not configured
-#define TYPE_RESERVED             1            //unused. Might indicate a "virtual" light
+#define TYPE_NONE                 0           //light is not configured
+#define TYPE_RESERVED             1           //unused. Might indicate a "virtual" light
 //Digital types (data pin only) (16-31)
-#define TYPE_WS2812_1CH          20            //white-only chips
-#define TYPE_WS2812_WWA          21            //amber + warm + cold white
+#define TYPE_WS2812_1CH          20           //white-only chips
+#define TYPE_WS2812_WWA          21           //amber + warm + cold white
 #define TYPE_WS2812_RGB          22
-#define TYPE_GS8608              23            //same driver as WS2812, but will require signal 2x per second (else displays test pattern)
-#define TYPE_WS2811_400KHZ       24            //half-speed WS2812 protocol, used by very old WS2811 units
+#define TYPE_GS8608              23           //same driver as WS2812, but will require signal 2x per second (else displays test pattern)
+#define TYPE_WS2811_400KHZ       24           //half-speed WS2812 protocol, used by very old WS2811 units
 #define TYPE_TM1829              25
+#define TYPE_SK6812_400KHZ       29
 #define TYPE_SK6812_RGBW         30
 #define TYPE_TM1814              31
-#define TYPE_SK6812_400KHZ       32
 //"Analog" types (PWM) (32-47)
-#define TYPE_ONOFF               40            //binary output (relays etc.)
-#define TYPE_ANALOG_1CH          41            //single channel PWM. Uses value of brightest RGBW channel
-#define TYPE_ANALOG_2CH          42            //analog WW + CW
-#define TYPE_ANALOG_3CH          43            //analog RGB
-#define TYPE_ANALOG_4CH          44            //analog RGBW
-#define TYPE_ANALOG_5CH          45            //analog RGB + WW + CW
+#define TYPE_ONOFF               40           //binary output (relays etc.)
+#define TYPE_ANALOG_1CH          41           //single channel PWM. Uses value of brightest RGBW channel
+#define TYPE_ANALOG_2CH          42           //analog WW + CW
+#define TYPE_ANALOG_3CH          43           //analog RGB
+#define TYPE_ANALOG_4CH          44           //analog RGBW
+#define TYPE_ANALOG_5CH          45           //analog RGB + WW + CW
 //Digital types (data + clock / SPI) (48-63)
 #define TYPE_WS2801              50
 #define TYPE_APA102              51
@@ -188,14 +188,14 @@
 #define TYPE_P9813               53
 #define TYPE_LPD6803             54
 //Network types (master broadcast) (80-95)
-#define TYPE_NET_DDP_RGB         80            //network DDP RGB bus (master broadcast bus)
-#define TYPE_NET_E131_RGB        81            //network E131 RGB bus (master broadcast bus, unused)
-#define TYPE_NET_ARTNET_RGB      82            //network ArtNet RGB bus (master broadcast bus, unused)
-#define TYPE_NET_DDP_RGBW        88            //network DDP RGBW bus (master broadcast bus)
+#define TYPE_NET_DDP_RGB         80           //network DDP RGB bus (master broadcast bus)
+#define TYPE_NET_E131_RGB        81           //network E131 RGB bus (master broadcast bus, unused)
+#define TYPE_NET_ARTNET_RGB      82           //network ArtNet RGB bus (master broadcast bus, unused)
+#define TYPE_NET_DDP_RGBW        88           //network DDP RGBW bus (master broadcast bus)
 
-#define IS_DIGITAL(t) ((t) & 0x10) //digital are 16-31 and 48-63
+#define IS_DIGITAL(t) ((t) & 0x10)            //digital are 16-31 and 48-63
 #define IS_PWM(t)     ((t) > 40 && (t) < 46)
-#define NUM_PWM_PINS(t) ((t) - 40) //for analog PWM 41-45 only
+#define NUM_PWM_PINS(t) ((t) - 40)            //for analog PWM 41-45 only
 #define IS_2PIN(t)      ((t) > 47)
 
 //Color orders
