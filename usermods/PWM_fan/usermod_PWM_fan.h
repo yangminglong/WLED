@@ -53,6 +53,8 @@ class PWMFanUsermod : public Usermod {
     uint8_t numberOfInterrupsInOneSingleRotation = 2;     // Number of interrupts ESP32 sees on tacho signal on a single fan rotation. All the fans I've seen trigger two interrups.
     uint8_t pwmValuePct       = 0;
 
+    bool HAautodiscovery = false;
+
     // strings to reduce flash memory usage (used more than twice)
     static const char _name[];
     static const char _enabled[];
@@ -64,6 +66,7 @@ class PWMFanUsermod : public Usermod {
     static const char _IRQperRotation[];
     static const char _speed[];
     static const char _lock[];
+    static const char _HAautodiscovery[];
 
     void initTacho(void) {
       if (tachoPin < 0 || !pinManager.allocatePin(tachoPin, false, PinOwner::UM_Unspecified)){
@@ -181,6 +184,44 @@ class PWMFanUsermod : public Usermod {
       updateFanSpeed(newPWMvalue);
     }
 
+    void publishMqtt() {
+      //Check if MQTT Connected, otherwise it will crash the 8266
+      if (WLED_MQTT_CONNECTED && tachoPin >= 0){
+        char subuf[64], spd[12];
+        sprintf_P(subuf, PSTR("%s/pwmfan"), mqttDeviceTopic);
+        mqtt->publish(subuf, 0, false, pwmValuePct ? "on" : "off");
+        if (tachoPin >= 0) {
+          sprintf_P(subuf, PSTR("%s/pwmrpm"), mqttDeviceTopic);
+          sprintf_P(spd, PSTR("%d"), last_rpm);
+          mqtt->publish(subuf, 0, false, spd);
+        }
+      }
+    }
+
+    void publishHomeAssistantAutodiscovery() {
+      if (!WLED_MQTT_CONNECTED) return;
+
+      char json_str[1024], buf[128];
+      size_t payload_size;
+      StaticJsonDocument<1024> json;
+
+      sprintf_P(buf, PSTR("%s PWM Fan"), serverDescription);
+      json[F("name")] = buf;
+      sprintf_P(buf, PSTR("%s/pwmfan"), mqttDeviceTopic);
+      json[F("state_topic")] = buf;
+      json[F("command_topic")] = buf;
+      sprintf_P(buf, PSTR("%s/pwmspeed"), mqttDeviceTopic);
+      json[F("percentage_command_topic")] = buf;
+      json[F("speed_range_min")] = 1;
+      json[F("speed_range_max")] = 100;
+      json[F("device_class")] = F("fan");
+      json[F("unique_id")] = escapedMac.c_str();
+      payload_size = serializeJson(json, json_str);
+
+      sprintf_P(buf, PSTR("homeassistant/sensor/%s/config"), escapedMac.c_str());
+      mqtt->publish(buf, 0, true, json_str, payload_size);
+    }
+
   public:
 
     // gets called once at boot. Do all initialization that doesn't depend on
@@ -211,6 +252,56 @@ class PWMFanUsermod : public Usermod {
 
       updateTacho();
       if (!lockFan) setFanPWMbasedOnTemperature();
+
+      static unsigned long lastUpdate = 0;
+      if (millis() - lastUpdate < 10000) return;  // publish MQTT every 10s
+      lastUpdate = millis();
+      publishMqtt();
+    }
+
+    /**
+     * handling of MQTT message
+     * topic only contains stripped topic (part after /wled/MAC)
+     * topic should look like: /set or /speed
+     */
+    bool onMqttMessage(char* topic, char* payload) {
+      String action = payload;
+      if (strncmp_P(topic, PSTR("/pwmfan"), 7) == 0) {
+        if (action == "on") {
+          pwmValuePct = 100;
+          updateFanSpeed((pwmValuePct * 255) / 100);
+          lockFan = true;
+          return true;
+        } else if (action == "off") {
+          updateFanSpeed(0);
+          lockFan = false;
+          return true;
+        }
+      } else if (strncmp_P(topic, PSTR("/pwmspeed"), 9) == 0) {
+        int8_t speed = action.toInt();
+        if (speed > 0 && speed <= 100) {
+          pwmValuePct = speed;
+          updateFanSpeed((pwmValuePct * 255) / 100);
+          return true;
+        }
+      }
+      return false;
+    }
+
+    /**
+     * subscribe to MQTT topic for controlling relays
+     */
+    void onMqttConnect(bool sessionPresent) {
+      //(re)subscribe to required topics
+      char subuf[64];
+      if (mqttDeviceTopic[0] != 0) {
+        sprintf_P(subuf, PSTR("%s/pwmfan"), mqttDeviceTopic);
+        mqtt->subscribe(subuf, 0);
+        sprintf_P(subuf, PSTR("%s/pwmspeed"), mqttDeviceTopic);
+        mqtt->subscribe(subuf, 0);
+        if (HAautodiscovery) publishHomeAssistantAutodiscovery();
+        publishMqtt(); //publish current state
+      }
     }
 
     /*
@@ -302,13 +393,14 @@ class PWMFanUsermod : public Usermod {
      */
     void addToConfig(JsonObject& root) {
       JsonObject top = root.createNestedObject(FPSTR(_name)); // usermodname
-      top[FPSTR(_enabled)]        = enabled;
-      top[FPSTR(_pwmPin)]         = pwmPin;
-      top[FPSTR(_tachoPin)]       = tachoPin;
-      top[FPSTR(_tachoUpdateSec)] = tachoUpdateSec;
-      top[FPSTR(_temperature)]    = targetTemperature;
-      top[FPSTR(_minPWMValuePct)] = minPWMValuePct;
-      top[FPSTR(_IRQperRotation)] = numberOfInterrupsInOneSingleRotation;
+      top[FPSTR(_enabled)]         = enabled;
+      top[FPSTR(_pwmPin)]          = pwmPin;
+      top[FPSTR(_tachoPin)]        = tachoPin;
+      top[FPSTR(_tachoUpdateSec)]  = tachoUpdateSec;
+      top[FPSTR(_temperature)]     = targetTemperature;
+      top[FPSTR(_minPWMValuePct)]  = minPWMValuePct;
+      top[FPSTR(_IRQperRotation)]  = numberOfInterrupsInOneSingleRotation;
+      top[FPSTR(_HAautodiscovery)] = HAautodiscovery;
       DEBUG_PRINTLN(F("Autosave config saved."));
     }
 
@@ -343,6 +435,7 @@ class PWMFanUsermod : public Usermod {
       minPWMValuePct    = (uint8_t) min(100,max(0,(int)minPWMValuePct)); // bounds checking
       numberOfInterrupsInOneSingleRotation = top[FPSTR(_IRQperRotation)] | numberOfInterrupsInOneSingleRotation;
       numberOfInterrupsInOneSingleRotation = (uint8_t) max(1,(int)numberOfInterrupsInOneSingleRotation); // bounds checking
+      HAautodiscovery   = top[FPSTR(_HAautodiscovery)] | HAautodiscovery;
 
       if (!initDone) {
         // first run: reading from cfg.json
@@ -365,7 +458,7 @@ class PWMFanUsermod : public Usermod {
       }
 
       // use "return !top["newestParameter"].isNull();" when updating Usermod with new features
-      return !top[FPSTR(_IRQperRotation)].isNull();
+      return !top[FPSTR(_HAautodiscovery)].isNull();
   }
 
     /*
@@ -378,13 +471,14 @@ class PWMFanUsermod : public Usermod {
 };
 
 // strings to reduce flash memory usage (used more than twice)
-const char PWMFanUsermod::_name[]           PROGMEM = "PWM-fan";
-const char PWMFanUsermod::_enabled[]        PROGMEM = "enabled";
-const char PWMFanUsermod::_tachoPin[]       PROGMEM = "tacho-pin";
-const char PWMFanUsermod::_pwmPin[]         PROGMEM = "PWM-pin";
-const char PWMFanUsermod::_temperature[]    PROGMEM = "target-temp-C";
-const char PWMFanUsermod::_tachoUpdateSec[] PROGMEM = "tacho-update-s";
-const char PWMFanUsermod::_minPWMValuePct[] PROGMEM = "min-PWM-percent";
-const char PWMFanUsermod::_IRQperRotation[] PROGMEM = "IRQs-per-rotation";
-const char PWMFanUsermod::_speed[]          PROGMEM = "speed";
-const char PWMFanUsermod::_lock[]           PROGMEM = "lock";
+const char PWMFanUsermod::_name[]            PROGMEM = "PWM-fan";
+const char PWMFanUsermod::_enabled[]         PROGMEM = "enabled";
+const char PWMFanUsermod::_tachoPin[]        PROGMEM = "tacho-pin";
+const char PWMFanUsermod::_pwmPin[]          PROGMEM = "PWM-pin";
+const char PWMFanUsermod::_temperature[]     PROGMEM = "target-temp-C";
+const char PWMFanUsermod::_tachoUpdateSec[]  PROGMEM = "tacho-update-s";
+const char PWMFanUsermod::_minPWMValuePct[]  PROGMEM = "min-PWM-percent";
+const char PWMFanUsermod::_IRQperRotation[]  PROGMEM = "IRQs-per-rotation";
+const char PWMFanUsermod::_speed[]           PROGMEM = "speed";
+const char PWMFanUsermod::_lock[]            PROGMEM = "lock";
+const char PWMFanUsermod::_HAautodiscovery[] PROGMEM = "HA-autodiscovery";
