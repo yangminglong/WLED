@@ -17,8 +17,10 @@ class UsermodBattery : public Usermod
     int8_t batteryPin = USERMOD_BATTERY_MEASUREMENT_PIN;
     // how often to read the battery voltage
     unsigned long readingInterval = USERMOD_BATTERY_MEASUREMENT_INTERVAL;
+    unsigned long publishInterval = 30000;
     unsigned long nextReadTime = 0;
     unsigned long lastReadTime = 0;
+    unsigned long nextPublishTime = 0;
     // battery min. voltage
     float minBatteryVoltage = USERMOD_BATTERY_MIN_VOLTAGE;
     // battery max. voltage
@@ -54,6 +56,13 @@ class UsermodBattery : public Usermod
 
     bool initDone = false;
     bool initializing = true;
+    bool mqttInitialized;
+
+    int resisterUp = 330000; //
+    int resisterDown = 100000; //
+    float mapFactor = 1; // (resisterUp+resisterDown) / resisterDown
+    bool dirty = false;
+
 
     // strings to reduce flash memory usage (used more than twice)
     static const char _name[];
@@ -139,8 +148,10 @@ class UsermodBattery : public Usermod
         pinMode(batteryPin, INPUT);
       #endif
 
-      nextReadTime = millis() + readingInterval;
+      //nextReadTime = millis() + readingInterval;
       lastReadTime = millis();
+
+      //nextPublishTime = millis() + publishInterval;
 
       initDone = true;
     }
@@ -155,6 +166,52 @@ class UsermodBattery : public Usermod
       //Serial.println("Connected to WiFi!");
     }
 
+    void onMqttConnect(bool sessionPresent) {
+      if (mqttDeviceTopic[0] == 0) {
+        Serial.println("mqttDeviceTopic is empty.");
+        return;
+      }
+      char buf[128];
+      sprintf(buf, "%s/voltageCalibrate", mqttDeviceTopic);
+      mqtt->subscribe(buf, 0);
+    }
+
+    bool onMqttMessage(char* topic, char* payload) {
+      if (mqttDeviceTopic[0] == 0) {
+        Serial.println("mqttDeviceTopic is empty.");
+        return false;
+      }
+
+      if (strcmp("/voltageCalibrate", topic) != 0) {
+        Serial.printf("topic error: %s \n", topic);
+        return false;
+      }
+
+      StaticJsonDocument<200> doc;
+
+      DeserializationError error = deserializeJson(doc, payload);
+
+      if (error) {
+        Serial.print(F("deserializeJson() failed: "));
+        Serial.println(error.f_str());
+        return false;
+      }
+
+      const char* destId = doc["dest"];
+
+      if (strcmp(destId, mqttClientID) != 0) {
+        Serial.printf("destId error: %s \n", destId);
+        return false;
+      }
+
+      double voltage = doc["voltage"];
+      double realVoltage = doc["realVoltage"];
+      mapFactor = realVoltage / (voltage / mapFactor);
+      dirty = true;
+
+      return true;
+    }
+
 
     /*
      * loop() is called continuously. Here you can check for events, read sensors, etc.
@@ -163,6 +220,11 @@ class UsermodBattery : public Usermod
     void loop() 
     {
       if(strip.isUpdating()) return;
+
+      if (dirty) {
+        dirty = false;
+        serializeConfig();
+      }
 
       lowPowerIndicator();
 
@@ -188,7 +250,9 @@ class UsermodBattery : public Usermod
       rawValue = analogRead(batteryPin);
 
       // calculate the voltage     
-      voltage = ((rawValue / getAdcPrecision()) * maxBatteryVoltage) + calibration;
+      // voltage = ((rawValue / getAdcPrecision()) * maxBatteryVoltage) + calibration;
+      
+      voltage = ((rawValue / getAdcPrecision()) * mapFactor) + calibration;       
 #endif
       // check if voltage is within specified voltage range, allow 10% over/under voltage
       voltage = ((voltage < minBatteryVoltage * 0.85f) || (voltage > maxBatteryVoltage * 1.1f)) ? -1.0f : voltage;
@@ -362,6 +426,7 @@ class UsermodBattery : public Usermod
       battery[F("capacity")] = totalBatteryCapacity;
       battery[F("calibration")] = calibration;
       battery[FPSTR(_readInterval)] = readingInterval;
+      battery[F("mapFactor")] = mapFactor;
       
       JsonObject ao = battery.createNestedObject(F("auto-off"));               // auto off section
       ao[FPSTR(_enabled)] = autoOffEnabled;
@@ -438,6 +503,7 @@ class UsermodBattery : public Usermod
       setTotalBatteryCapacity(battery[F("capacity")] | totalBatteryCapacity);
       setCalibration(battery[F("calibration")] | calibration);
       setReadingInterval(battery[FPSTR(_readInterval)] | readingInterval);
+      setMapFactor(battery[F("mapFactor")] | ((resisterUp+resisterDown) / resisterDown));
 
       JsonObject ao = battery[F("auto-off")];
       setAutoOffEnabled(ao[FPSTR(_enabled)] | autoOffEnabled);
@@ -636,6 +702,11 @@ class UsermodBattery : public Usermod
       return calibration;
     }
 
+    float getMapFactor()
+    {
+      return mapFactor;
+    }
+
     /*
      * Set the voltage calibration offset value
      * a offset value to fine-tune the calculated voltage.
@@ -643,6 +714,11 @@ class UsermodBattery : public Usermod
     void setCalibration(float offset)
     {
       calibration = offset;
+    }
+
+    void setMapFactor(float factor) 
+    {
+      mapFactor = factor;
     }
 
 

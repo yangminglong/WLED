@@ -32,7 +32,7 @@
 
 // a common capacity for single 18650 battery cells is between 2500 and 3600 mAh
 #ifndef USERMOD_BATTERY_TOTAL_CAPACITY
-  #define USERMOD_BATTERY_TOTAL_CAPACITY 3100
+  #define USERMOD_BATTERY_TOTAL_CAPACITY 3000
 #endif
 
 // offset or calibration value to fine tune the calculated voltage
