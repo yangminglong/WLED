@@ -30,7 +30,7 @@ class UsermodBattery : public Usermod
     // raw analog reading 
     float rawValue = 0.0f;
     // calculated voltage            
-    float voltage = maxBatteryVoltage;
+    float voltage = 0;
     // mapped battery level based on voltage
     int8_t batteryLevel = 100;
     // offset or calibration value to fine tune the calculated voltage
@@ -58,9 +58,9 @@ class UsermodBattery : public Usermod
     bool initializing = true;
     bool mqttInitialized;
 
-    int resisterUp = 330000; //
-    int resisterDown = 100000; //
-    float mapFactor = 1; // (resisterUp+resisterDown) / resisterDown
+    float resisterUp = 330000; //
+    float resisterDown = 100000; //
+    float mapfactor = 4.3; // (resisterUp+resisterDown) / resisterDown
     bool dirty = false;
 
 
@@ -206,7 +206,7 @@ class UsermodBattery : public Usermod
 
       double voltage = doc["voltage"];
       double realVoltage = doc["realVoltage"];
-      mapFactor = realVoltage / (voltage / mapFactor);
+      mapfactor = realVoltage / (voltage / mapfactor);
       dirty = true;
 
       return true;
@@ -252,7 +252,7 @@ class UsermodBattery : public Usermod
       // calculate the voltage     
       // voltage = ((rawValue / getAdcPrecision()) * maxBatteryVoltage) + calibration;
       
-      voltage = ((rawValue / getAdcPrecision()) * mapFactor) + calibration;       
+      voltage = ((rawValue / getAdcPrecision()) * mapfactor) + calibration;       
 #endif
       // check if voltage is within specified voltage range, allow 10% over/under voltage
       voltage = ((voltage < minBatteryVoltage * 0.85f) || (voltage > maxBatteryVoltage * 1.1f)) ? -1.0f : voltage;
@@ -426,7 +426,7 @@ class UsermodBattery : public Usermod
       battery[F("capacity")] = totalBatteryCapacity;
       battery[F("calibration")] = calibration;
       battery[FPSTR(_readInterval)] = readingInterval;
-      battery[F("mapFactor")] = mapFactor;
+      battery[F("mapfactor")] = mapfactor;
       
       JsonObject ao = battery.createNestedObject(F("auto-off"));               // auto off section
       ao[FPSTR(_enabled)] = autoOffEnabled;
@@ -503,7 +503,7 @@ class UsermodBattery : public Usermod
       setTotalBatteryCapacity(battery[F("capacity")] | totalBatteryCapacity);
       setCalibration(battery[F("calibration")] | calibration);
       setReadingInterval(battery[FPSTR(_readInterval)] | readingInterval);
-      setMapFactor(battery[F("mapFactor")] | ((resisterUp+resisterDown) / resisterDown));
+      setMapFactor(battery[F("mapfactor")] | ((resisterUp+resisterDown) / resisterDown));
 
       JsonObject ao = battery[F("auto-off")];
       setAutoOffEnabled(ao[FPSTR(_enabled)] | autoOffEnabled);
@@ -637,11 +637,12 @@ class UsermodBattery : public Usermod
      */
     void setMaxBatteryVoltage(float voltage)
     {
-      #ifdef USERMOD_BATTERY_USE_LIPO
-        maxBatteryVoltage = max(getMinBatteryVoltage()+0.7f, voltage);
-      #else
-        maxBatteryVoltage = max(getMinBatteryVoltage()+1.0f, voltage);
-      #endif
+      maxBatteryVoltage = voltage;
+      // #ifdef USERMOD_BATTERY_USE_LIPO
+      //   maxBatteryVoltage = max(getMinBatteryVoltage()+0.7f, voltage);
+      // #else
+      //   maxBatteryVoltage = max(getMinBatteryVoltage()+1.0f, voltage);
+      // #endif
     }
 
 
@@ -704,7 +705,7 @@ class UsermodBattery : public Usermod
 
     float getMapFactor()
     {
-      return mapFactor;
+      return mapfactor;
     }
 
     /*
@@ -718,7 +719,7 @@ class UsermodBattery : public Usermod
 
     void setMapFactor(float factor) 
     {
-      mapFactor = factor;
+      mapfactor = factor;
     }
 
 
