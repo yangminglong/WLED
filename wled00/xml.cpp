@@ -287,6 +287,9 @@ void getSettingsJS(byte subPage, char* dest)
 
   if (subPage == 0)
   {
+  #ifndef WLED_DISABLE_2D // include only if 2D is compiled in
+    oappend(PSTR("gId('2dbtn').style.display='';"));
+  #endif
   #ifdef WLED_ENABLE_DMX // include only if DMX is enabled
     oappend(PSTR("gId('dmxbtn').style.display='';"));
   #endif
@@ -505,6 +508,7 @@ void getSettingsJS(byte subPage, char* dest)
     sappend('c',SET_F("EM"),e131Multicast);
     sappend('v',SET_F("EU"),e131Universe);
     sappend('v',SET_F("DA"),DMXAddress);
+    sappend('v',SET_F("XX"),DMXSegmentSpacing);
     sappend('v',SET_F("DM"),DMXMode);
     sappend('v',SET_F("ET"),realtimeTimeoutMs);
     sappend('c',SET_F("FB"),arlsForceMaxBri);
