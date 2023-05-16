@@ -105,7 +105,7 @@ void stateUpdated(byte callMode) {
 
     if (callMode != CALL_MODE_NOTIFICATION && callMode != CALL_MODE_NO_NOTIFY) notify(callMode);
 
-    //set flag to update blynk, ws and mqtt
+    //set flag to update ws and mqtt
     interfaceUpdateCallMode = callMode;
     stateChanged = false;
   } else {
@@ -128,6 +128,9 @@ void stateUpdated(byte callMode) {
 
   //deactivate nightlight if target brightness is reached
   if (bri == nightlightTargetBri && callMode != CALL_MODE_NO_NOTIFY && nightlightMode != NL_MODE_SUN) nightlightActive = false;
+
+  // notify usermods of state change
+  usermods.onStateChange(callMode);
 
   if (fadeTransition) {
     //set correct delay if not using notification delay
@@ -167,10 +170,6 @@ void updateInterfaces(uint8_t callMode)
     espalexaDevice->setColor(col[0], col[1], col[2]);
   }
   #endif
-  #ifndef WLED_DISABLE_BLYNK
-  if (callMode != CALL_MODE_BLYNK &&
-      callMode != CALL_MODE_NO_NOTIFY) updateBlynk();
-  #endif
   doPublishMqtt = true;
   interfaceUpdateCallMode = 0; //disable
 }
@@ -180,7 +179,9 @@ void handleTransitions()
 {
   //handle still pending interface update
   if (interfaceUpdateCallMode && millis() - lastInterfaceUpdate > INTERFACE_UPDATE_COOLDOWN) updateInterfaces(interfaceUpdateCallMode);
+#ifndef WLED_DISABLE_MQTT
   if (doPublishMqtt) publishMqtt();
+#endif
 
   if (transitionActive && transitionDelayTemp > 0)
   {
@@ -273,9 +274,7 @@ void handleNightlight()
           applyFinalBri();
         }
       }
-      #ifndef WLED_DISABLE_BLYNK
-      updateBlynk();
-      #endif
+
       if (macroNl > 0)
         applyPreset(macroNl);
       nightlightActiveOld = false;

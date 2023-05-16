@@ -6,6 +6,10 @@
 #endif
 #include "html_settings.h"
 #include "html_other.h"
+#ifdef WLED_ENABLE_PIXART
+  #include "html_pixart.h"
+#endif
+#include "html_cpal.h"
 
 /*
  * Integrated HTTP web server page declarations
@@ -55,8 +59,10 @@ void handleUpload(AsyncWebServerRequest *request, const String& filename, size_t
     if (filename.indexOf(F("cfg.json")) >= 0) { // check for filename with or without slash
       doReboot = true;
       request->send(200, "text/plain", F("Configuration restore successful.\nRebooting..."));
-    } else
+    } else {
+      if (filename.indexOf(F("palette")) >= 0 && filename.indexOf(F(".json")) >= 0) strip.loadCustomPalettes();
       request->send(200, "text/plain", F("File Uploaded!"));
+    }
     cacheInvalidate++;
   }
 }
@@ -216,7 +222,7 @@ void initServer()
       }
     }
     request->send(200, "application/json", F("{\"success\":true}"));
-  });
+  }, JSON_BUFFER_SIZE);
   server.addHandler(handler);
 
   server.on("/version", HTTP_GET, [](AsyncWebServerRequest *request){
@@ -343,6 +349,26 @@ void initServer()
   server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){
     if (captivePortal(request)) return;
     serveIndexOrWelcome(request);
+  });
+
+  #ifdef WLED_ENABLE_PIXART
+  server.on("/pixart.htm", HTTP_GET, [](AsyncWebServerRequest *request){
+    if (handleFileRead(request, "/pixart.htm")) return;
+    if (handleIfNoneMatchCacheHeader(request)) return;
+    AsyncWebServerResponse *response = request->beginResponse_P(200, "text/html", PAGE_pixart, PAGE_pixart_L);
+    response->addHeader(FPSTR(s_content_enc),"gzip");
+    setStaticContentCacheHeaders(response);
+    request->send(response);
+  });
+  #endif
+
+  server.on("/cpal.htm", HTTP_GET, [](AsyncWebServerRequest *request){
+    if (handleFileRead(request, "/cpal.htm")) return;
+    if (handleIfNoneMatchCacheHeader(request)) return;
+    AsyncWebServerResponse *response = request->beginResponse_P(200, "text/html", PAGE_cpal, PAGE_cpal_L);
+    response->addHeader(FPSTR(s_content_enc),"gzip");
+    setStaticContentCacheHeaders(response);
+    request->send(response);
   });
 
   #ifdef WLED_ENABLE_WEBSOCKETS
@@ -599,10 +625,14 @@ void serveSettings(AsyncWebServerRequest* request, bool post)
     case 4:   response = request->beginResponse_P(200, "text/html", PAGE_settings_sync, PAGE_settings_sync_length); break;
     case 5:   response = request->beginResponse_P(200, "text/html", PAGE_settings_time, PAGE_settings_time_length); break;
     case 6:   response = request->beginResponse_P(200, "text/html", PAGE_settings_sec,  PAGE_settings_sec_length);  break;
+#ifdef WLED_ENABLE_DMX
     case 7:   response = request->beginResponse_P(200, "text/html", PAGE_settings_dmx,  PAGE_settings_dmx_length);  break;
+#endif
     case 8:   response = request->beginResponse_P(200, "text/html", PAGE_settings_um,   PAGE_settings_um_length);   break;
     case 9:   response = request->beginResponse_P(200, "text/html", PAGE_update,        PAGE_update_length);        break;
+#ifndef WLED_DISABLE_2D
     case 10:  response = request->beginResponse_P(200, "text/html", PAGE_settings_2D,   PAGE_settings_2D_length);   break;
+#endif
     case 251: {
       correctPIN = !strlen(settingsPIN); // lock if a pin is set
       createEditHandler(correctPIN);

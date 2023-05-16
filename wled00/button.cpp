@@ -24,12 +24,14 @@ void shortPressAction(uint8_t b)
     applyPreset(macroButton[b], CALL_MODE_BUTTON_PRESET);
   }
 
+#ifndef WLED_DISABLE_MQTT
   // publish MQTT message
   if (buttonPublishMqtt && WLED_MQTT_CONNECTED) {
     char subuf[64];
     sprintf_P(subuf, _mqtt_topic_button, mqttDeviceTopic, (int)b);
     mqtt->publish(subuf, 0, false, "short");
   }
+#endif
 }
 
 void longPressAction(uint8_t b)
@@ -43,12 +45,14 @@ void longPressAction(uint8_t b)
     applyPreset(macroLongPress[b], CALL_MODE_BUTTON_PRESET);
   }
 
+#ifndef WLED_DISABLE_MQTT
   // publish MQTT message
   if (buttonPublishMqtt && WLED_MQTT_CONNECTED) {
     char subuf[64];
     sprintf_P(subuf, _mqtt_topic_button, mqttDeviceTopic, (int)b);
     mqtt->publish(subuf, 0, false, "long");
   }
+#endif
 }
 
 void doublePressAction(uint8_t b)
@@ -62,12 +66,14 @@ void doublePressAction(uint8_t b)
     applyPreset(macroDoublePress[b], CALL_MODE_BUTTON_PRESET);
   }
 
+#ifndef WLED_DISABLE_MQTT
   // publish MQTT message
   if (buttonPublishMqtt && WLED_MQTT_CONNECTED) {
     char subuf[64];
     sprintf_P(subuf, _mqtt_topic_button, mqttDeviceTopic, (int)b);
     mqtt->publish(subuf, 0, false, "double");
   }
+#endif
 }
 
 bool isButtonPressed(uint8_t i)
@@ -119,6 +125,7 @@ void handleSwitch(uint8_t b)
       }
     }
 
+#ifndef WLED_DISABLE_MQTT
     // publish MQTT message
     if (buttonPublishMqtt && WLED_MQTT_CONNECTED) {
       char subuf[64];
@@ -126,6 +133,7 @@ void handleSwitch(uint8_t b)
       else sprintf_P(subuf, _mqtt_topic_button, mqttDeviceTopic, (int)b);
       mqtt->publish(subuf, 0, false, !buttonPressedBefore[b] ? "off" : "on");
     }
+#endif
 
     buttonLongPressed[b] = buttonPressedBefore[b]; //save the last "long term" switch state
   }
@@ -217,7 +225,6 @@ void handleButton()
 {
   static unsigned long lastRead = 0UL;
   static unsigned long lastRun = 0UL;
-  bool analog = false;
   unsigned long now = millis();
 
   //if (strip.isUpdating()) return; // don't interfere with strip updates. Our button will still be there in 1ms (next cycle)
@@ -233,14 +240,18 @@ void handleButton()
 
     if (usermods.handleButton(b)) continue; // did usermod handle buttons
 
-    if ((buttonType[b] == BTN_TYPE_ANALOG || buttonType[b] == BTN_TYPE_ANALOG_INVERTED) && now - lastRead > ANALOG_BTN_READ_CYCLE) {   // button is not a button but a potentiometer
-      analog = true;
-      handleAnalog(b); continue;
+    if (buttonType[b] == BTN_TYPE_ANALOG || buttonType[b] == BTN_TYPE_ANALOG_INVERTED) {   // button is not a button but a potentiometer
+      if (now - lastRead > ANALOG_BTN_READ_CYCLE) {
+        handleAnalog(b);
+        lastRead = now;
+      }
+      continue;
     }
 
     //button is not momentary, but switch. This is only suitable on pins whose on-boot state does not matter (NOT gpio0)
     if (buttonType[b] == BTN_TYPE_SWITCH || buttonType[b] == BTN_TYPE_PIR_SENSOR) {
-      handleSwitch(b); continue;
+      handleSwitch(b);
+      continue;
     }
 
     //momentary button logic
@@ -297,7 +308,6 @@ void handleButton()
       shortPressAction(b);
     }
   }
-  if (analog) lastRead = now;
 }
 
 // If enabled, RMT idle level is set to HIGH when off

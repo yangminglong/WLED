@@ -83,7 +83,7 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
     cctFromRgb = request->hasArg(F("CR"));
     strip.cctBlending = request->arg(F("CB")).toInt();
     Bus::setCCTBlend(strip.cctBlending);
-    Bus::setAutoWhiteMode(request->arg(F("AW")).toInt());
+    Bus::setGlobalAWMode(request->arg(F("AW")).toInt());
     strip.setTargetFps(request->arg(F("FR")).toInt());
     strip.useLedsArray = request->hasArg(F("LD"));
 
@@ -99,6 +99,7 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
       char rf[4] = "RF"; rf[2] = 48+s; rf[3] = 0; //refresh required
       char aw[4] = "AW"; aw[2] = 48+s; aw[3] = 0; //auto white mode
       char wo[4] = "WO"; wo[2] = 48+s; wo[3] = 0; //channel swap
+      char sp[4] = "SP"; sp[2] = 48+s; sp[3] = 0; //bus clock speed (DotStar & PWM)
       if (!request->hasArg(lp)) {
         DEBUG_PRINT(F("No data for "));
         DEBUG_PRINTLN(s);
@@ -120,11 +121,33 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
         break;  // no parameter
       }
       awmode = request->arg(aw).toInt();
+      uint16_t freqHz = request->arg(sp).toInt();
+      if (type > TYPE_ONOFF && type < 49) {
+        switch (freqHz) {
+          case 0 : freqHz = WLED_PWM_FREQ/3; break;
+          case 1 : freqHz = WLED_PWM_FREQ/2; break;
+          default:
+          case 2 : freqHz = WLED_PWM_FREQ;   break;
+          case 3 : freqHz = WLED_PWM_FREQ*2; break;
+          case 4 : freqHz = WLED_PWM_FREQ*3; break;
+        }
+      } else if (type > 48 && type < 64) {
+        switch (freqHz) {
+          default:
+          case 0 : freqHz =  1000; break;
+          case 1 : freqHz =  2000; break;
+          case 2 : freqHz =  5000; break;
+          case 3 : freqHz = 10000; break;
+          case 4 : freqHz = 20000; break;
+        }
+      } else {
+        freqHz = 0;
+      }
       channelSwap = (type == TYPE_SK6812_RGBW || type == TYPE_TM1814) ? request->arg(wo).toInt() : 0;
       // actual finalization is done in WLED::loop() (removing old busses and adding new)
       // this may happen even before this loop is finished so we do "doInitBusses" after the loop
       if (busConfigs[s] != nullptr) delete busConfigs[s];
-      busConfigs[s] = new BusConfig(type, pins, start, length, colorOrder | (channelSwap<<4), request->hasArg(cv), skip, awmode);
+      busConfigs[s] = new BusConfig(type, pins, start, length, colorOrder | (channelSwap<<4), request->hasArg(cv), skip, awmode, freqHz);
       busesChanged = true;
     }
     //doInitBusses = busesChanged; // we will do that below to ensure all input data is processed
@@ -208,11 +231,21 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
     if (t <= 250) bootPreset = t;
     gammaCorrectBri = request->hasArg(F("GB"));
     gammaCorrectCol = request->hasArg(F("GC"));
+    gammaCorrectVal = request->arg(F("GV")).toFloat();
+    if (gammaCorrectVal > 1.0f && gammaCorrectVal <= 3)
+      calcGammaTable(gammaCorrectVal);
+    else {
+      gammaCorrectVal = 1.0f; // no gamma correction
+      gammaCorrectBri = false;
+      gammaCorrectCol = false;
+    }
 
     fadeTransition = request->hasArg(F("TF"));
     t = request->arg(F("TD")).toInt();
     if (t >= 0) transitionDelayDefault = t;
     strip.paletteFade = request->hasArg(F("PF"));
+    t = request->arg(F("TP")).toInt();
+    randomPaletteChangeTime = MIN(255,MAX(1,t));
 
     nightlightTargetBri = request->arg(F("TB")).toInt();
     t = request->arg(F("TL")).toInt();
@@ -240,6 +273,10 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
     }
     simplifiedUI = request->hasArg(F("SU"));
   #endif
+    DEBUG_PRINTLN(F("Enumerating ledmaps"));
+    enumerateLedmaps();
+    DEBUG_PRINTLN(F("Loading custom palettes"));
+    strip.loadCustomPalettes(); // (re)load all custom palettes
   }
 
   //SYNC
@@ -284,8 +321,12 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
     if (t >= 0  && t <= 63999) e131Universe = t;
     t = request->arg(F("DA")).toInt();
     if (t >= 0  && t <= 510) DMXAddress = t;
+    t = request->arg(F("XX")).toInt();
+    if (t >= 0  && t <= 150) DMXSegmentSpacing = t;
+    t = request->arg(F("PY")).toInt();
+    if (t >= 0  && t <= 200) e131Priority = t;
     t = request->arg(F("DM")).toInt();
-    if (t >= DMX_MODE_DISABLED && t <= DMX_MODE_MULTIPLE_RGBW) DMXMode = t;
+    if (t >= DMX_MODE_DISABLED && t <= DMX_MODE_PRESET) DMXMode = t;
     t = request->arg(F("ET")).toInt();
     if (t > 99  && t <= 65000) realtimeTimeoutMs = t;
     arlsForceMaxBri = request->hasArg(F("FB"));
@@ -297,16 +338,6 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
     strlcpy(alexaInvocationName, request->arg(F("AI")).c_str(), 33);
     t = request->arg(F("AP")).toInt();
     if (t >= 0 && t <= 9) alexaNumPresets = t;
-
-    #ifndef WLED_DISABLE_BLYNK
-    strlcpy(blynkHost, request->arg("BH").c_str(), 33);
-    t = request->arg(F("BP")).toInt();
-    if (t > 0) blynkPort = t;
-
-    if (request->hasArg("BK") && !request->arg("BK").equals(F("Hidden"))) {
-      strlcpy(blynkApiKey, request->arg("BK").c_str(), 36); initBlynk(blynkApiKey, blynkHost, blynkPort);
-    }
-    #endif
 
     #ifdef WLED_ENABLE_MQTT
     mqttEnabled = request->hasArg(F("MQ"));
@@ -407,15 +438,15 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
       k[0] = 'W'; //weekdays
       timerWeekday[i] = request->arg(k).toInt();
       if (i<8) {
-				k[0] = 'M'; //start month
-				timerMonth[i] = request->arg(k).toInt() & 0x0F;
-				timerMonth[i] <<= 4;
-				k[0] = 'P'; //end month
-				timerMonth[i] += (request->arg(k).toInt() & 0x0F);
-				k[0] = 'D'; //start day
-				timerDay[i] = request->arg(k).toInt();
-				k[0] = 'E'; //end day
-				timerDayEnd[i] = request->arg(k).toInt();
+        k[0] = 'M'; //start month
+        timerMonth[i] = request->arg(k).toInt() & 0x0F;
+        timerMonth[i] <<= 4;
+        k[0] = 'P'; //end month
+        timerMonth[i] += (request->arg(k).toInt() & 0x0F);
+        k[0] = 'D'; //start day
+        timerDay[i] = request->arg(k).toInt();
+        k[0] = 'E'; //end day
+        timerDayEnd[i] = request->arg(k).toInt();
       }
     }
   }
@@ -643,15 +674,9 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
   if (subPage == 10)
   {
     strip.isMatrix = request->arg(F("SOMP")).toInt();
-    // strip.panelH   = MAX(1,MIN(128,request->arg(F("PH")).toInt()));
-    // strip.panelW   = MAX(1,MIN(128,request->arg(F("PW")).toInt()));
     strip.panel.clear(); // release memory if allocated
     if (strip.isMatrix) {
       strip.panels  = MAX(1,MIN(WLED_MAX_PANELS,request->arg(F("MPC")).toInt()));
-      strip.matrix.bottomStart = request->arg(F("PB")).toInt();
-      strip.matrix.rightStart  = request->arg(F("PR")).toInt();
-      strip.matrix.vertical    = request->arg(F("PV")).toInt();
-      strip.matrix.serpentine  = request->hasArg(F("PS"));
       strip.panel.reserve(strip.panels); // pre-allocate memory
       for (uint8_t i=0; i<strip.panels; i++) {
         WS2812FX::Panel p;
@@ -671,17 +696,21 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
         pO[l] = 'H'; p.height      = request->arg(pO).toInt();
         strip.panel.push_back(p);
       }
+      strip.setUpMatrix(); // will check limits
+      strip.makeAutoSegments(true);
+      strip.deserializeMap();
     } else {
       Segment::maxWidth  = strip.getLengthTotal();
       Segment::maxHeight = 1;
     }
-    strip.setUpMatrix(); // will check limits
   }
   #endif
 
   lastEditTime = millis();
   if (subPage != 2 && !doReboot) doSerializeConfig = true; //serializeConfig(); //do not save if factory reset or LED settings (which are saved after LED re-init)
+  #ifndef WLED_DISABLE_ALEXA
   if (subPage == 4) alexaInit();
+  #endif
 }
 
 
@@ -796,7 +825,7 @@ bool handleSet(AsyncWebServerRequest *request, const String& req, bool apply)
 
   //apply preset
   if (updateVal(req.c_str(), "PL=", &presetCycCurr, presetCycMin, presetCycMax)) {
-		unloadPlaylist();
+    unloadPlaylist();
     applyPreset(presetCycCurr);
   }
 
