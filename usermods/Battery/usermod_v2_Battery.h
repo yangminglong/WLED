@@ -288,7 +288,6 @@ class UsermodBattery : public Usermod
       if (autoOffEnabled && (autoOffThreshold >= batteryLevel))
         turnOff();
 
-#ifndef WLED_DISABLE_MQTT
       // SmartHome stuff
       // still don't know much about MQTT and/or HA
       if (WLED_MQTT_CONNECTED) {
@@ -296,7 +295,6 @@ class UsermodBattery : public Usermod
         snprintf_P(buf, 63, PSTR("%s/voltage"), mqttDeviceTopic);
         mqtt->publish(buf, 0, false, String(voltage).c_str());
       }
-#endif
 
     }
 

@@ -11,6 +11,13 @@
 #define SET_BIT(var,bit)    ((var)|=(uint16_t)(0x0001<<(bit)))
 #define UNSET_BIT(var,bit)  ((var)&=(~(uint16_t)(0x0001<<(bit))))
 
+#define NUM_ICS_WS2812_1CH_3X(len) (((len)+2)/3)   // 1 WS2811 IC controls 3 zones (each zone has 1 LED, W)
+#define IC_INDEX_WS2812_1CH_3X(i)  ((i)/3)
+
+#define NUM_ICS_WS2812_2CH_3X(len) (((len)+1)*2/3) // 2 WS2811 ICs control 3 zones (each zone has 2 LEDs, CW and WW)
+#define IC_INDEX_WS2812_2CH_3X(i)  ((i)*2/3)
+#define WS2812_2CH_3X_SPANS_2_ICS(i) ((i)&0x01)    // every other LED zone is on two different ICs
+
 //temporary struct for passing bus configuration to bus
 struct BusConfig {
   uint8_t type;
@@ -22,10 +29,11 @@ struct BusConfig {
   bool refreshReq;
   uint8_t autoWhite;
   uint8_t pins[5] = {LEDPIN, 255, 255, 255, 255};
-  BusConfig(uint8_t busType, uint8_t* ppins, uint16_t pstart, uint16_t len = 1, uint8_t pcolorOrder = COL_ORDER_GRB, bool rev = false, uint8_t skip = 0, byte aw=RGBW_MODE_MANUAL_ONLY) {
+  uint16_t frequency;
+  BusConfig(uint8_t busType, uint8_t* ppins, uint16_t pstart, uint16_t len = 1, uint8_t pcolorOrder = COL_ORDER_GRB, bool rev = false, uint8_t skip = 0, byte aw=RGBW_MODE_MANUAL_ONLY, uint16_t clock_kHz=0U) {
     refreshReq = (bool) GET_BIT(busType,7);
     type = busType & 0x7F;  // bit 7 may be/is hacked to include refresh info (1=refresh in off state, 0=no refresh)
-    count = len; start = pstart; colorOrder = pcolorOrder; reversed = rev; skipAmount = skip; autoWhite = aw;
+    count = len; start = pstart; colorOrder = pcolorOrder; reversed = rev; skipAmount = skip; autoWhite = aw; frequency = clock_kHz;
     uint8_t nPins = 1;
     if (type >= TYPE_NET_DDP_RGB && type < 96) nPins = 4; //virtual network bus. 4 "pins" store IP address
     else if (type > 47) nPins = 2;
@@ -90,7 +98,7 @@ class Bus {
     {
       _type = type;
       _start = start;
-      _autoWhiteMode = Bus::isRgbw(_type) ? aw : RGBW_MODE_MANUAL_ONLY;
+      _autoWhiteMode = Bus::hasWhite(_type) ? aw : RGBW_MODE_MANUAL_ONLY;
     };
 
     virtual ~Bus() {} //throw the bus under the bus
@@ -107,6 +115,7 @@ class Bus {
     virtual void     setColorOrder() {}
     virtual uint8_t  getColorOrder() { return COL_ORDER_RGB; }
     virtual uint8_t  skippedLeds() { return 0; }
+    virtual uint16_t getFrequency() { return 0U; }
     inline  uint16_t getStart() { return _start; }
     inline  void     setStart(uint16_t start) { _start = start; }
     inline  uint8_t  getType() { return _type; }
@@ -114,37 +123,37 @@ class Bus {
     inline  bool     isOffRefreshRequired() { return _needsRefresh; }
             bool     containsPixel(uint16_t pix) { return pix >= _start && pix < _start+_len; }
 
-    virtual bool isRgbw() { return Bus::isRgbw(_type); }
-    static  bool isRgbw(uint8_t type) {
-      if (type == TYPE_SK6812_RGBW || type == TYPE_TM1814) return true;
-      if (type > TYPE_ONOFF && type <= TYPE_ANALOG_5CH && type != TYPE_ANALOG_3CH) return true;
-      if (type == TYPE_NET_DDP_RGBW) return true;
-      return false;
-    }
     virtual bool hasRGB() {
-      if (_type == TYPE_WS2812_1CH || _type == TYPE_WS2812_WWA || _type == TYPE_ANALOG_1CH || _type == TYPE_ANALOG_2CH || _type == TYPE_ONOFF) return false;
+      if ((_type >= TYPE_WS2812_1CH && _type <= TYPE_WS2812_WWA) || _type == TYPE_ANALOG_1CH || _type == TYPE_ANALOG_2CH || _type == TYPE_ONOFF) return false;
       return true;
     }
-    virtual bool hasWhite() {
-      if (_type == TYPE_SK6812_RGBW || _type == TYPE_TM1814 || _type == TYPE_WS2812_1CH || _type == TYPE_WS2812_WWA ||
-          _type == TYPE_ANALOG_1CH || _type == TYPE_ANALOG_2CH || _type == TYPE_ANALOG_4CH || _type == TYPE_ANALOG_5CH || _type == TYPE_NET_DDP_RGBW) return true;
+    virtual bool hasWhite() { return Bus::hasWhite(_type); }
+    static  bool hasWhite(uint8_t type) {
+      if ((type >= TYPE_WS2812_1CH && type <= TYPE_WS2812_WWA) || type == TYPE_SK6812_RGBW || type == TYPE_TM1814) return true; // digital types with white channel
+      if (type > TYPE_ONOFF && type <= TYPE_ANALOG_5CH && type != TYPE_ANALOG_3CH) return true; // analog types with white channel
+      if (type == TYPE_NET_DDP_RGBW) return true; // network types with white channel
+      return false;
+    }
+    virtual bool hasCCT() {
+      if (_type == TYPE_WS2812_2CH_X3 || _type == TYPE_WS2812_WWA ||
+          _type == TYPE_ANALOG_2CH    || _type == TYPE_ANALOG_5CH) return true;
       return false;
     }
     static void setCCT(uint16_t cct) {
       _cct = cct;
     }
-		static void setCCTBlend(uint8_t b) {
-			if (b > 100) b = 100;
-			_cctBlend = (b * 127) / 100;
-			//compile-time limiter for hardware that can't power both white channels at max
-			#ifdef WLED_MAX_CCT_BLEND
-				if (_cctBlend > WLED_MAX_CCT_BLEND) _cctBlend = WLED_MAX_CCT_BLEND;
-			#endif
-		}
-		inline        void    setAWMode(uint8_t m)        { if (m < 4) _autoWhiteMode = m; }
-		inline        uint8_t getAWMode()                 { return _autoWhiteMode; }
-    inline static void    setAutoWhiteMode(uint8_t m) { if (m < 4) _gAWM = m; else _gAWM = 255; }
-    inline static uint8_t getAutoWhiteMode()          { return _gAWM; }
+    static void setCCTBlend(uint8_t b) {
+      if (b > 100) b = 100;
+      _cctBlend = (b * 127) / 100;
+      //compile-time limiter for hardware that can't power both white channels at max
+      #ifdef WLED_MAX_CCT_BLEND
+        if (_cctBlend > WLED_MAX_CCT_BLEND) _cctBlend = WLED_MAX_CCT_BLEND;
+      #endif
+    }
+    inline        void    setAutoWhiteMode(uint8_t m) { if (m < 5) _autoWhiteMode = m; }
+    inline        uint8_t getAutoWhiteMode()          { return _autoWhiteMode; }
+    inline static void    setGlobalAWMode(uint8_t m)  { if (m < 5) _gAWM = m; else _gAWM = AW_GLOBAL_DISABLED; }
+    inline static uint8_t getGlobalAWMode()           { return _gAWM; }
 
     bool reversed = false;
 
@@ -196,6 +205,8 @@ class BusDigital : public Bus {
       return _skip;
     }
 
+    uint16_t getFrequency() { return _frequencykHz; }
+
     void reinit();
 
     void cleanup();
@@ -209,6 +220,7 @@ class BusDigital : public Bus {
     uint8_t _pins[2] = {255, 255};
     uint8_t _iType = 0; //I_NONE;
     uint8_t _skip = 0;
+    uint16_t _frequencykHz = 0U;
     void * _busPtr = nullptr;
     const ColorOrderMap &_colorOrderMap;
 };
@@ -227,6 +239,8 @@ class BusPwm : public Bus {
 
     uint8_t getPins(uint8_t* pinArray);
 
+    uint16_t getFrequency() { return _frequency; }
+
     void cleanup() {
       deallocatePins();
     }
@@ -241,6 +255,7 @@ class BusPwm : public Bus {
     #ifdef ARDUINO_ARCH_ESP32
     uint8_t _ledcStart = 255;
     #endif
+    uint16_t _frequency = 0U;
 
     void deallocatePins();
 };
@@ -292,10 +307,6 @@ class BusNetwork : public Bus {
 
     uint8_t getPins(uint8_t* pinArray);
 
-    bool isRgbw() {
-      return _rgbw;
-    }
-
     uint16_t getLength() {
       return _len;
     }
@@ -332,7 +343,7 @@ class BusManager {
 
     void setStatusPixel(uint32_t c);
 
-    void IRAM_ATTR setPixelColor(uint16_t pix, uint32_t c, int16_t cct=-1);
+    void setPixelColor(uint16_t pix, uint32_t c, int16_t cct=-1);
 
     void setBrightness(uint8_t b);
 
