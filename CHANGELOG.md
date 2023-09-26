@@ -1,5 +1,35 @@
 ## WLED changelog
 
+#### Build 2309100
+-   Release of WLED beta version 0.14.0-b5 "Hoshi"
+-   New standard esp32 build with audioreactive
+-   Effect blending bugfixes, and minor optimizations
+
+#### Build 2309050
+-   Effect blending (#3311) (finally efect transitions!)
+    *WARNING*: May not work well with ESP8266, with plenty of segments or usermods (low RAM condition)!!!
+-   Added receive and send sync groups to JSON API (#3317) (you can change sync groups using preset)
+-   Internal temperature usermod (#3246)
+-   MQTT server and topic length overrides (#3354) (new build flags)
+-   Animated Staircase usermod enhancement (#3348) (on/off toggle/relay control)
+-   Added local time info to Info page (#3351)
+-   New effect: Rolling Balls (a.k.a. linear bounce) (#1039)
+-   Various bug fixes and enhancements.
+
+#### Build 2308110
+-   Release of WLED beta version 0.14.0-b4 "Hoshi"
+-   Reset effect data immediately upon mode change
+
+#### Build 2308030
+-   Improved random palette handling and blending
+-   Soap bugfix
+-   Fix ESP-NOW crash with AP mode Always
+
+#### Build 2307180
+-   Bus-level global buffering (#3280)
+-   Removed per-segment LED buffer (SEGMENT.leds)
+-   various fixes and improvements (ESP variants platform 5.3.0, effect optimizations, /json/cfg pin allocation)
+
 #### Build 2307130
 -   larger `oappend()` stack buffer (3.5k) for ESP32
 -   Preset cycle bugfix (#3262)
