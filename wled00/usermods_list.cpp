@@ -197,6 +197,9 @@
 #include "../usermods/pwm_outputs/usermod_pwm_outputs.h"
 #endif
 
+#ifdef USERMOD_SERVO_FEED
+#include "../usermods/TimerServoFeed/usermod_TimerServoFeed.h"
+#endif
 
 void registerUsermods()
 {
