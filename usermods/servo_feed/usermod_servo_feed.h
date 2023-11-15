@@ -1,6 +1,5 @@
 #pragma once
 #include "wled.h"
-#include <Ticker.h>
 
 #ifndef ESP32
   #error This usermod does not support the ESP8266.
@@ -131,6 +130,21 @@ class PwmOutput {
     bool enabled_ {false};
 };
 
+class Ticker 
+{
+public:
+  void once(uint64_t sec, std::function<void(void)> callback) {
+
+  }
+  void once_ms(uint64_t ms, std::function<void(void)> callback) {
+
+  }
+  void attach(uint64_t sec, std::function<void(void)> callback) {
+  }
+private:
+
+};
+
 
 class ServoFeed
 {
@@ -142,9 +156,12 @@ public:
   void feed() {
     pwm.setDuty(servoFeedPos);
     Ticker* ticker = new Ticker();
-    ticker->once_ms(feedbackDelay, [this, ticker](){
-      pwm.setDuty(servoStandbyPos);
-      delete ticker;
+
+
+    // 将 std::function 对象作为参数传递给 once_ms 方法
+    ticker->once_ms(feedbackDelay, [this, ticker](void) {
+        
+        delete ticker;
     });
   }
 
@@ -177,10 +194,12 @@ public:
       if (remainder <=0) 
         remainder = remainder + SECS_PER_DAY; 
 
-      ticker->once(remainder, [this, ticker](){
+      auto callFeed = [this, ticker](){
         feed();
-        ticker->attach(SECS_PER_DAY, [this](){feed();});
-      });
+        ticker->attach(SECS_PER_DAY, [this](){ feed();});
+      };
+
+      ticker->once(remainder, callFeed);
     }
   }
 
@@ -269,7 +288,7 @@ public:
       configComplete &= getJsonValue(servoFeedConfig[buffer], feedTimes[i], -1);
     }
 
-    feedbackDelay = std::min(1000, feedbackDelay);
+    feedbackDelay = std::min(1000, (int)feedbackDelay);
 
     pwm.readFromConfig(servoFeedConfig);
     pwm.setDuty(servoStandbyPos);
@@ -283,7 +302,7 @@ public:
 private:
   float servoStandbyPos = 0;
   float servoFeedPos = 1;
-  int feedbackDelay = 2000;
+  uint32_t feedbackDelay = 2000;
   time_t feedTimes[USERMOD_FEED_TIMES];  // second on day
   std::vector<Ticker> feedTicker;  // second on day
 
@@ -378,5 +397,5 @@ class ServoFeedUsermod : public Usermod {
     ServoFeed feeds[USERMOD_PWM_SERVO_PINS];
 };
 
-const char PwmOutputsUsermod::USERMOD_NAME[] PROGMEM = "ServoFeed";
-const char PwmOutputsUsermod::STATE_NAME[] PROGMEM = "ServoFeedState";
+const char ServoFeedUsermod::USERMOD_NAME[] PROGMEM = "ServoFeed";
+const char ServoFeedUsermod::STATE_NAME[] PROGMEM = "ServoFeedState";
