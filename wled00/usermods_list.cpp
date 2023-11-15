@@ -376,4 +376,9 @@ void registerUsermods()
   #ifdef USERMOD_INTERNAL_TEMPERATURE
   usermods.add(new InternalTemperatureUsermod());
   #endif
+
+  #ifdef USERMOD_SERVO_FEED
+  usermods.add(new TimerServoUsermod());
+  #endif
+
 }
