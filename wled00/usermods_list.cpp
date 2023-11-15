@@ -197,6 +197,10 @@
 #include "../usermods/pwm_outputs/usermod_pwm_outputs.h"
 #endif
 
+#ifdef USERMOD_PWM_SERVO
+#include "../usermods/servo_feed/usermod_servo_feed.h"
+#endif
+
 
 void registerUsermods()
 {
@@ -372,5 +376,9 @@ void registerUsermods()
 
   #ifdef USERMOD_INTERNAL_TEMPERATURE
   usermods.add(new InternalTemperatureUsermod());
+  #endif
+
+  #ifdef USERMOD_PWM_SERVO
+  usermods.add(new ServoFeedUsermod());
   #endif
 }
