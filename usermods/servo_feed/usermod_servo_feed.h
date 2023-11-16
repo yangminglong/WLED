@@ -1,5 +1,6 @@
 #pragma once
 #include "wled.h"
+#include <Ticker.h>
 
 #ifndef ESP32
   #error This usermod does not support the ESP8266.
@@ -130,39 +131,34 @@ class PwmOutput {
     bool enabled_ {false};
 };
 
-class Ticker 
-{
-public:
-  void once(uint64_t sec, std::function<void(void)> callback) {
-
-  }
-  void once_ms(uint64_t ms, std::function<void(void)> callback) {
-
-  }
-  void attach(uint64_t sec, std::function<void(void)> callback) {
-  }
-private:
-
-};
 
 
+#include <set>
 class ServoFeed
 {
 public:
+  ServoFeed()
+  {
+    for (int i=0; i < USERMOD_FEED_TIMES; i++) 
+    {
+      feedInfos[i].feed = this;
+    }
+  }
+
   bool isEnabled() const {
     return pwm.isEnabled();
   }
+  struct FeedTickerInfo {
+    Ticker ticker;
+    ServoFeed* feed;
+  };
 
   void feed() {
     pwm.setDuty(servoFeedPos);
-    Ticker* ticker = new Ticker();
 
-
-    // 将 std::function 对象作为参数传递给 once_ms 方法
-    ticker->once_ms(feedbackDelay, [this, ticker](void) {
-        
-        delete ticker;
-    });
+    moveTicker.once_ms<ServoFeed*>(feedbackDelay, [](ServoFeed* feed) {
+        feed->pwm.setDuty(feed->servoStandbyPos);
+    }, this);
   }
 
   time_t getCurSecsOfDay() const {
@@ -180,26 +176,25 @@ public:
 
     time_t currSecofDay = getCurSecsOfDay();
 
-    feedTicker.clear();
     for (int i=0; i < USERMOD_FEED_TIMES; i++) 
     {
       time_t feedTime = feedTimes[i];
-      if (feedTime < 0)
+      FeedTickerInfo& feedInfo = feedInfos[i];
+      if (feedTime < 0) {
+        feedInfo.ticker.detach();
         return;
-
-      feedTicker.push_back(Ticker());
-      Ticker* ticker = &feedTicker.back();
+      }
 
       time_t remainder =  feedTime - currSecofDay;
       if (remainder <=0) 
         remainder = remainder + SECS_PER_DAY; 
 
-      auto callFeed = [this, ticker](){
-        feed();
-        ticker->attach(SECS_PER_DAY, [this](){ feed();});
-      };
+      feedInfo.feed = this;
 
-      ticker->once(remainder, callFeed);
+      feedInfo.ticker.once<FeedTickerInfo*>(remainder, [](FeedTickerInfo* feedInfo){
+        feedInfo->feed->feed();
+        feedInfo->ticker.attach<ServoFeed*>(SECS_PER_DAY, [](ServoFeed* feed){ feed->feed(); }, feedInfo->feed);
+      }, &feedInfo);
     }
   }
 
@@ -215,7 +210,7 @@ public:
     for(int i=0;i < USERMOD_FEED_TIMES; ++i) 
     {
       String  fmtTime = formatTime(feedTimes[i]);
-      String key = "feedTime " + String(i);
+      String key = String(i)+"FeedTime:";
       state[key] = fmtTime;
     }
 
@@ -228,7 +223,7 @@ public:
     }
 
     bool feedNow = false;
-    if (getJsonValue(state[F("feedNow")], feedNow, false)) {
+    if (getJsonValue(state[F("feedNow")], feedNow, false) && feedNow) {
       feed();
     }
   }
@@ -254,7 +249,7 @@ public:
     if (isEnabled() && remainder > 0) {
         fmtTime = formatTime(remainder);
     }
-    user[F("nextFeedTime:"   )] = fmtTime;    
+    user[F("NextFeedTime:"   )] = fmtTime;    
   }
 
 
@@ -291,9 +286,11 @@ public:
     feedbackDelay = std::min(1000, (int)feedbackDelay);
 
     pwm.readFromConfig(servoFeedConfig);
-    pwm.setDuty(servoStandbyPos);
 
-    updateFeedTicker();
+    pwm.setDuty(servoStandbyPos);
+    moveTicker.once_ms<ServoFeed*>(feedbackDelay, [](ServoFeed* feed) {
+      feed->updateFeedTicker();
+    }, this);
 
     return configComplete;
   }
@@ -304,7 +301,8 @@ private:
   float servoFeedPos = 1;
   uint32_t feedbackDelay = 2000;
   time_t feedTimes[USERMOD_FEED_TIMES];  // second on day
-  std::vector<Ticker> feedTicker;  // second on day
+  FeedTickerInfo feedInfos[USERMOD_FEED_TIMES];
+  Ticker moveTicker;
 
   PwmOutput pwm;
 };
