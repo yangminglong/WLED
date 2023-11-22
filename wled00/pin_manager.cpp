@@ -242,7 +242,11 @@ bool PinManagerClass::isPinOk(byte gpio, bool output)
   if (digitalPinIsValid(gpio)) {
   #if defined(CONFIG_IDF_TARGET_ESP32C3)
     // strapping pins: 2, 8, & 9
-    if (gpio > 11 && gpio < 18) return false;     // 11-17 SPI FLASH
+    #if defined(HEZHOU_DIO_PIN12_PIN13)
+      if (gpio > 13 && gpio < 18) return false;     // 14-17 SPI FLASH
+    #else
+      if (gpio > 11 && gpio < 18) return false;     // 11-17 SPI FLASH
+    #endif
     if (gpio > 17 && gpio < 20) return false;     // 18-19 USB-JTAG
   #elif defined(CONFIG_IDF_TARGET_ESP32S3)
     // 00 to 18 are for general use. Be careful about straping pins GPIO0 and GPIO3 - these may be pulled-up or pulled-down on your board.

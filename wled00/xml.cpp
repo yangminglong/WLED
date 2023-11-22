@@ -146,7 +146,11 @@ void appendGPIOinfo() {
   #elif defined(CONFIG_IDF_TARGET_ESP32S3)
   oappend(SET_F("d.rsvd=[19,20,22,23,24,25,26,27,28,29,30,31,32"));  // includes 19+20 for USB OTG (JTAG)
   #elif defined(CONFIG_IDF_TARGET_ESP32C3)
-  oappend(SET_F("d.rsvd=[11,12,13,14,15,16,17"));
+    #if defined(HEZHOU_DIO_PIN12_PIN13)
+    oappend(SET_F("d.rsvd=[14,15,16,17"));
+    #else
+    oappend(SET_F("d.rsvd=[11,12,13,14,15,16,17"));
+    #endif
   #elif defined(ESP32)
   oappend(SET_F("d.rsvd=[6,7,8,9,10,11,24,28,29,30,31,37,38"));
   #else
