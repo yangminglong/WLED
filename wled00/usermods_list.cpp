@@ -201,6 +201,10 @@
 #include "../usermods/LDR_Dusk_Dawn_v2/usermod_LDR_Dusk_Dawn_v2.h"
 #endif
 
+#ifdef USERMOD_PWM_SERVO
+#include "../usermods/servo_feed/usermod_servo_feed.h"
+#endif
+
 void registerUsermods()
 {
 /*
@@ -380,4 +384,9 @@ void registerUsermods()
   #ifdef USERMOD_LDR_DUSK_DAWN
   usermods.add(new LDR_Dusk_Dawn_v2());
   #endif
+
+  #ifdef USERMOD_PWM_SERVO
+  usermods.add(new ServoFeedUsermod());
+  #endif
+
 }
