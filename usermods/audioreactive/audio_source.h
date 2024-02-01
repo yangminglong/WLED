@@ -161,6 +161,112 @@ class AudioSource {
     float _sampleScale;             // pre-scaling factor for I2S samples
 };
 
+#ifdef WLED_ENABLE_A2DP
+#include "BluetoothA2DPSink.h"
+
+
+// Then somewhere in your sketch:
+void read_data_stream(const uint8_t *data, uint32_t length) {
+    // process all data
+    Frame *frame = (Frame*)data;
+    int nFrame = length / 4;
+
+    
+}
+
+class A2DPSource : public AudioSource {
+  public:
+    /* All public methods are virtual, so they can be overridden
+       Everything but the destructor is also removed, to make sure each mic
+       Implementation provides its version of this function
+    */
+    virtual ~A2DPSource() {};
+    A2DPSource(SRate_t sampleRate, int blockSize, float sampleScale)
+      : AudioSource(sampleRate, blockSize, sampleScale)
+    {
+
+    };
+    /* Initialize
+       This function needs to take care of anything that needs to be done
+       before samples can be obtained from the microphone.
+    */
+    virtual void initialize(int8_t bckPin = 26, int8_t wsPin = 25, int8_t dataOutPin = 22, int8_t dataInPin = I2S_PIN_NO_CHANGE, int8_t mckPin = I2S_PIN_NO_CHANGE)
+    {
+      struct PinDef {
+        int8_t pinNum;
+        bool output;
+        String pinName;
+      };
+      PinDef pins[5] = {
+        { bckPin    , true , "bckPin" },
+        { wsPin     , true , "wsPin" },
+        { dataOutPin, true , "dataOutPin" },
+        { dataInPin , false, "dataInPin" },
+        { mckPin    , true , "mckPin" },
+      };
+
+      for (int i = 0;i < 5; ++i) {
+        PinDef pin = pins[i];
+        if (pin.pinNum != I2S_PIN_NO_CHANGE) 
+        {
+          if (!pinManager.allocatePin(pin.pinNum, pin.output, PinOwner::UM_Audioreactive) ) { // #206
+            DEBUGSR_PRINTF("\nAR: Failed to allocate I2S pins: %s=%d\n",  pin.pinName.c_str(), pin.pinNum); 
+            return;
+          }
+        }        
+      }
+
+      i2s_pin_config_t my_pin_config = {
+        .mck_io_num = mckPin,
+        .bck_io_num = bckPin,
+        .ws_io_num = wsPin,
+        .data_out_num = dataOutPin,
+        .data_in_num = dataInPin
+      };
+      a2dp_sink.set_pin_config(my_pin_config);
+
+      // output to callback and no I2S 
+      a2dp_sink.set_stream_reader(read_data_stream, false);
+      // connect to MyMusic with no automatic reconnect
+      a2dp_sink.start("MyMusic", false);  
+    };
+
+    /* Deinitialize
+       Release all resources and deactivate any functionality that is used
+       by this microphone
+    */
+    virtual void deinitialize() {
+      _initialized = false;
+      esp_err_t err = i2s_driver_uninstall(I2S_NUM_0);
+      if (err != ESP_OK) {
+        DEBUGSR_PRINTF("Failed to uninstall i2s driver: %d\n", err);
+        return;
+      }
+      const i2s_pin_config_t& _pinConfig = a2dp_sink.get_pin_config();
+      if (_pinConfig.ws_io_num    != I2S_PIN_NO_CHANGE) pinManager.deallocatePin(_pinConfig.ws_io_num   , PinOwner::UM_Audioreactive);
+      if (_pinConfig.data_in_num  != I2S_PIN_NO_CHANGE) pinManager.deallocatePin(_pinConfig.data_in_num , PinOwner::UM_Audioreactive);
+      if (_pinConfig.data_out_num != I2S_PIN_NO_CHANGE) pinManager.deallocatePin(_pinConfig.data_out_num, PinOwner::UM_Audioreactive);
+      if (_pinConfig.bck_io_num   != I2S_PIN_NO_CHANGE) pinManager.deallocatePin(_pinConfig.bck_io_num  , PinOwner::UM_Audioreactive);
+      if (_pinConfig.mck_io_num   != I2S_PIN_NO_CHANGE) pinManager.deallocatePin(_pinConfig.mck_io_num  , PinOwner::UM_Audioreactive);
+    }
+
+    /* getSamples
+       Read num_samples from the microphone, and store them in the provided
+       buffer
+    */
+    virtual void getSamples(float *buffer, uint16_t num_samples)
+    {
+
+    };
+
+    /* check if the audio source driver was initialized successfully */
+    virtual bool isInitialized(void) { return(_initialized); }
+private:
+    BluetoothA2DPSink a2dp_sink;
+};
+
+#endif
+
 /* Basic I2S microphone source
    All functions are marked virtual, so derived classes can replace them
 */
