@@ -54,7 +54,7 @@
 // use audio source class (ESP32 specific)
 #include "audio_source.h"
 constexpr i2s_port_t I2S_PORT = I2S_NUM_0;       // I2S port to use (do not change !)
-constexpr int BLOCK_SIZE = 128;                  // I2S buffer size (samples)
+// constexpr int BLOCK_SIZE = 128;                  // I2S buffer size (samples)
 
 // globals
 static uint8_t inputLevel = 128;              // UI slider value
@@ -153,7 +153,7 @@ static float   fftResultMax[NUM_GEQ_CHANNELS] = {0.0f};               // A table
 #endif
 
 // audio source parameters and constant
-constexpr SRate_t SAMPLE_RATE = 22050;        // Base sample rate in Hz - 22Khz is a standard rate. Physical sample time -> 23ms
+// constexpr SRate_t SAMPLE_RATE = 22050;        // Base sample rate in Hz - 22Khz is a standard rate. Physical sample time -> 23ms
 //constexpr SRate_t SAMPLE_RATE = 16000;        // 16kHz - use if FFTtask takes more than 20ms. Physical sample time -> 32ms
 //constexpr SRate_t SAMPLE_RATE = 20480;        // Base sample rate in Hz - 20Khz is experimental.    Physical sample time -> 25ms
 //constexpr SRate_t SAMPLE_RATE = 10240;        // Base sample rate in Hz - previous default.         Physical sample time -> 50ms
@@ -163,7 +163,7 @@ constexpr SRate_t SAMPLE_RATE = 22050;        // Base sample rate in Hz - 22Khz 
 //#define FFT_MIN_CYCLE 46                      // minimum time before FFT task is repeated. Use with 10Khz sampling
 
 // FFT Constants
-constexpr uint16_t samplesFFT = 512;            // Samples in an FFT batch - This value MUST ALWAYS be a power of 2
+// constexpr uint16_t samplesFFT = 512;            // Samples in an FFT batch - This value MUST ALWAYS be a power of 2
 constexpr uint16_t samplesFFT_2 = 256;          // meaningfull part of FFT results - only the "lower half" contains useful information.
 // the following are observed values, supported by a bit of "educated guessing"
 //#define FFT_DOWNSCALE 0.65f                             // 20kHz - downscaling factor for FFT results - "Flat-Top" window @20Khz, old freq channels 
@@ -1122,6 +1122,7 @@ class AudioReactive : public Usermod {
       delay(100);         // Give that poor microphone some time to setup.
 
       useBandPassFilter = false;
+
       switch (dmType) {
       #if defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32C3) || defined(CONFIG_IDF_TARGET_ESP32S3)
         // stub cases for not-yet-supported I2S modes on other ESP32 chips
@@ -1169,7 +1170,20 @@ class AudioReactive : public Usermod {
           delay(100);
           if (audioSource) audioSource->initialize(i2swsPin, i2ssdPin, i2sckPin, mclkPin);
           break;
-
+        #if defined(WLED_ENABLE_A2DP)
+        case 7:
+          DEBUGSR_PRINTLN(F("AR: A2DP Source"));
+          {
+            A2DPSource& a2dp = A2DPSource::getInstance();
+            delay(100);
+            a2dp.initialize(26, 25, 22);
+            a2dp.setCb_onMetadata([](const String& strLine){
+              // show strLine
+            });
+            audioSource = &a2dp;
+          }
+          break;
+        #endif
         #if  !defined(CONFIG_IDF_TARGET_ESP32S2) && !defined(CONFIG_IDF_TARGET_ESP32C3) && !defined(CONFIG_IDF_TARGET_ESP32S3)
         // ADC over I2S is only possible on "classic" ESP32
         case 0:
@@ -1182,6 +1196,7 @@ class AudioReactive : public Usermod {
           break;
         #endif
       }
+
       delay(250); // give microphone enough time to initialise
 
       if (!audioSource) enabled = false;                 // audio failed to initialise
@@ -1764,7 +1779,10 @@ class AudioReactive : public Usermod {
     #if  !defined(CONFIG_IDF_TARGET_ESP32S2) && !defined(CONFIG_IDF_TARGET_ESP32C3)
       oappend(SET_F("addOption(dd,'Generic I2S PDM',5);"));
     #endif
-    oappend(SET_F("addOption(dd,'ES8388',6);"));
+      oappend(SET_F("addOption(dd,'ES8388',6);"));
+    #if defined(WLED_ENABLE_A2DP) && defined(CONFIG_IDF_TARGET_ESP32S3)
+      oappend(SET_F("addOption(dd,'A2DP',7);"));
+    #endif
     
       oappend(SET_F("dd=addDropdown('AudioReactive','config:AGC');"));
       oappend(SET_F("addOption(dd,'Off',0);"));

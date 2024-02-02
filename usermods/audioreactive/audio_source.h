@@ -47,7 +47,7 @@
 //#define I2S_GRAB_ADC1_COMPLETELY // (experimental) continuously sample analog ADC microphone. WARNING will cause analogRead() lock-up
 
 // data type requested from the I2S driver - currently we always use 32bit
-//#define I2S_USE_16BIT_SAMPLES   // (experimental) define this to request 16bit - more efficient but possibly less compatible
+#define I2S_USE_16BIT_SAMPLES   // (experimental) define this to request 16bit - more efficient but possibly less compatible
 
 #ifdef I2S_USE_16BIT_SAMPLES
 #define I2S_SAMPLE_RESOLUTION I2S_BITS_PER_SAMPLE_16BIT
@@ -163,49 +163,39 @@ class AudioSource {
 
 #ifdef WLED_ENABLE_A2DP
 #include "BluetoothA2DPSink.h"
+#include "CircularBuffer.hpp"
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
+#include <freertos/semphr.h>
 
 
-// Then somewhere in your sketch:
-void read_data_stream(const uint8_t *data, uint32_t length) {
-    // process all data
-    Frame *frame = (Frame*)data;
-    int nFrame = length / 4;
 
-    
-}
+constexpr uint16_t samplesFFT = 512;            // Samples in an FFT batch - This value MUST ALWAYS be a power of 2
+constexpr SRate_t SAMPLE_RATE = 22050;        // Base sample rate in Hz - 22Khz is a standard rate. Physical sample time -> 23ms
+constexpr int BLOCK_SIZE = 128;                  // I2S buffer size (samples)
+
 
 class A2DPSource : public AudioSource {
   public:
-    /* All public methods are virtual, so they can be overridden
-       Everything but the destructor is also removed, to make sure each mic
-       Implementation provides its version of this function
-    */
-    virtual ~A2DPSource() {};
-    A2DPSource(SRate_t sampleRate, int blockSize, float sampleScale)
-      : AudioSource(sampleRate, blockSize, sampleScale)
-    {
-
-    };
     /* Initialize
        This function needs to take care of anything that needs to be done
        before samples can be obtained from the microphone.
     */
-    virtual void initialize(int8_t bckPin = 26, int8_t wsPin = 25, int8_t dataOutPin = 22, int8_t dataInPin = I2S_PIN_NO_CHANGE, int8_t mckPin = I2S_PIN_NO_CHANGE)
+    virtual void initialize(int8_t bckPin = 26, int8_t wsPin = 25, int8_t dOutPin = 22, int8_t dInPin = I2S_PIN_NO_CHANGE)
     {
       struct PinDef {
         int8_t pinNum;
         bool output;
         String pinName;
       };
-      PinDef pins[5] = {
-        { bckPin    , true , "bckPin" },
-        { wsPin     , true , "wsPin" },
-        { dataOutPin, true , "dataOutPin" },
-        { dataInPin , false, "dataInPin" },
-        { mckPin    , true , "mckPin" },
+      PinDef pins[] = {
+        { bckPin    , true , "bckPin"  },
+        { wsPin     , true , "wsPin"   },
+        { dOutPin   , true , "dOutPin" },
+        { dInPin    , false, "dInPin"  },
       };
 
-      for (int i = 0;i < 5; ++i) {
+      for (int i = 0;i < 4; ++i) {
         PinDef pin = pins[i];
         if (pin.pinNum != I2S_PIN_NO_CHANGE) 
         {
@@ -217,18 +207,40 @@ class A2DPSource : public AudioSource {
       }
 
       i2s_pin_config_t my_pin_config = {
-        .mck_io_num = mckPin,
         .bck_io_num = bckPin,
         .ws_io_num = wsPin,
-        .data_out_num = dataOutPin,
-        .data_in_num = dataInPin
+        .data_out_num = dOutPin,
+        .data_in_num = dInPin
       };
       a2dp_sink.set_pin_config(my_pin_config);
 
+      a2dp_sink.set_on_connection_state_changed([](esp_a2d_connection_state_t state, void *ptr){
+        A2DPSource& instance = A2DPSource::getInstance(); 
+        if (instance.m_cbConnStateChanged)
+          instance.m_cbConnStateChanged(state, ptr);
+      });
+      a2dp_sink.set_on_audio_state_changed([](esp_a2d_audio_state_t state, void *ptr){
+        A2DPSource& instance = A2DPSource::getInstance(); 
+        if (instance.m_cbAudioStateChanged)
+          instance.m_cbAudioStateChanged(state, ptr);
+      });
+      a2dp_sink.set_avrc_metadata_callback([](uint8_t id, const uint8_t *text){
+        A2DPSource& instance = A2DPSource::getInstance(); 
+        if (instance.m_cbMetadata) {
+          if (id == 1) {
+            String str((char*)text);
+            instance.m_cbMetadata(str);
+          }
+        }
+      });
       // output to callback and no I2S 
-      a2dp_sink.set_stream_reader(read_data_stream, false);
-      // connect to MyMusic with no automatic reconnect
-      a2dp_sink.start("MyMusic", false);  
+      a2dp_sink.set_stream_reader([](const uint8_t *data, uint32_t length){
+        A2DPSource& instance = A2DPSource::getInstance(); 
+        instance.read_data_stream(data, length);
+      }, true);
+
+      // connect to MyMusic with automatic reconnect
+      a2dp_sink.start("MyMusic", true);  
     };
 
     /* Deinitialize
@@ -237,17 +249,15 @@ class A2DPSource : public AudioSource {
     */
     virtual void deinitialize() {
       _initialized = false;
-      esp_err_t err = i2s_driver_uninstall(I2S_NUM_0);
-      if (err != ESP_OK) {
-        DEBUGSR_PRINTF("Failed to uninstall i2s driver: %d\n", err);
-        return;
-      }
-      const i2s_pin_config_t& _pinConfig = a2dp_sink.get_pin_config();
-      if (_pinConfig.ws_io_num    != I2S_PIN_NO_CHANGE) pinManager.deallocatePin(_pinConfig.ws_io_num   , PinOwner::UM_Audioreactive);
-      if (_pinConfig.data_in_num  != I2S_PIN_NO_CHANGE) pinManager.deallocatePin(_pinConfig.data_in_num , PinOwner::UM_Audioreactive);
-      if (_pinConfig.data_out_num != I2S_PIN_NO_CHANGE) pinManager.deallocatePin(_pinConfig.data_out_num, PinOwner::UM_Audioreactive);
+
+      i2s_pin_config_t _pinConfig = a2dp_sink.get_pin_config();
+
+      a2dp_sink.end(true);
+
       if (_pinConfig.bck_io_num   != I2S_PIN_NO_CHANGE) pinManager.deallocatePin(_pinConfig.bck_io_num  , PinOwner::UM_Audioreactive);
-      if (_pinConfig.mck_io_num   != I2S_PIN_NO_CHANGE) pinManager.deallocatePin(_pinConfig.mck_io_num  , PinOwner::UM_Audioreactive);
+      if (_pinConfig.ws_io_num    != I2S_PIN_NO_CHANGE) pinManager.deallocatePin(_pinConfig.ws_io_num   , PinOwner::UM_Audioreactive);
+      if (_pinConfig.data_out_num != I2S_PIN_NO_CHANGE) pinManager.deallocatePin(_pinConfig.data_out_num, PinOwner::UM_Audioreactive);
+      if (_pinConfig.data_in_num  != I2S_PIN_NO_CHANGE) pinManager.deallocatePin(_pinConfig.data_in_num , PinOwner::UM_Audioreactive);
     }
 
     /* getSamples
@@ -256,13 +266,93 @@ class A2DPSource : public AudioSource {
     */
     virtual void getSamples(float *buffer, uint16_t num_samples)
     {
+      int16_t subArray[samplesFFT];
+      // wait buffer full, buffer size equl samplesFFT, most wait 100 milliseconds.
+      unsigned long startMS = millis();
+      while (gbuffer.size() < samplesFFT && millis() - startMS < 100) {
+        // Wait for buffer to be ready
+        delay(1);
+      }
 
+      if (gbuffer.size() != samplesFFT)
+        return;
+
+      if (xSemaphoreTake(xMutex, pdMS_TO_TICKS(50)) == pdPASS) { // try to enter critical section with a timeout of 50 milliseconds
+        // copy to temp array, clear gbuffer
+        //gbuffer.copyToArray(subArray);
+        gbuffer.clear();
+        xSemaphoreGive(xMutex); // leave critical section
+      }
+
+      // set output
+      for (int i = 0; i < num_samples; i++) {
+        int16_t sample = postProcessSample(subArray[i]);  // perform postprocessing (needed for ADC samples)
+        buffer[i] = (float) sample;
+        buffer[i] *= _sampleScale;                              // scale samples
+      }
     };
 
     /* check if the audio source driver was initialized successfully */
     virtual bool isInitialized(void) { return(_initialized); }
+
+    // 获取单例实例的静态方法
+    static A2DPSource& getInstance() {
+        static A2DPSource instance; // 静态局部变量确保只创建一次
+        return instance;
+    }
+    // 删除拷贝构造函数和赋值操作符，防止拷贝实例
+    A2DPSource(const A2DPSource&) = delete;
+    A2DPSource& operator=(const A2DPSource&) = delete;
+
+  void setCb_onMetadata(std::function<void(const String&)> cbMetadata) { m_cbMetadata = cbMetadata; }
+  void setCb_onConnStateChanged(std::function<void(esp_a2d_connection_state_t state, void *ptr)> cbConnStateChanged) { m_cbConnStateChanged = cbConnStateChanged; }
+  void setCb_onAudioStateChanged(std::function<void(esp_a2d_audio_state_t state, void *ptr)> cbAudioStateChanged) { m_cbAudioStateChanged = cbAudioStateChanged; }
 private:
-    BluetoothA2DPSink a2dp_sink;
+    // 将构造函数设为私有，防止外部直接实例化
+    A2DPSource()
+      : AudioSource(SAMPLE_RATE, BLOCK_SIZE, 1.0)
+    {
+      setupBuffer();
+    };
+    // 私有析构函数，确保不被外部删除
+    ~A2DPSource() {
+        // 可以在析构函数中进行一些清理操作
+    }
+    // Then somewhere in your code, typically in `app_main()` function:
+    void setupBuffer() {
+        // Create the mutex
+        xMutex = xSemaphoreCreateMutex();
+        if (xMutex == NULL) {
+          // Mutex creation failed
+          // Handle the error
+          DEBUGSR_PRINTF("Mutex creation failed.\n"); 
+        }
+    }
+private:
+  // Then somewhere in your sketch:
+  void read_data_stream(const uint8_t *data, uint32_t length) {
+    // process all data
+    Frame *frame = (Frame*)data;
+    int nFrame = length / 4;
+
+    if (xSemaphoreTake(xMutex, pdMS_TO_TICKS(50)) == pdPASS) { // try to enter critical section with a timeout of 50 milliseconds
+      for (int i = 0; i < nFrame; ++i) {
+        gbuffer.push(frame[i].channel1);
+      }
+      xSemaphoreGive(xMutex); // leave critical section
+    }
+  }
+
+private:
+  BluetoothA2DPSink a2dp_sink;
+  CircularBuffer<int16_t, samplesFFT> gbuffer;
+  // Define a mutex
+  SemaphoreHandle_t xMutex;
+  // callbacks
+  std::function<void(const String&)> m_cbMetadata;
+  std::function<void(esp_a2d_connection_state_t state, void *ptr)> m_cbConnStateChanged;
+  std::function<void(esp_a2d_audio_state_t state, void *ptr)> m_cbAudioStateChanged;
+
 };
 
 #endif
