@@ -1170,7 +1170,7 @@ class AudioReactive : public Usermod {
           delay(100);
           if (audioSource) audioSource->initialize(i2swsPin, i2ssdPin, i2sckPin, mclkPin);
           break;
-        #if defined(WLED_ENABLE_A2DP)
+        #if defined(WLED_ENABLE_A2DP) && !defined(CONFIG_IDF_TARGET_ESP32S2) && !defined(CONFIG_IDF_TARGET_ESP32C3) && !defined(CONFIG_IDF_TARGET_ESP32S3)
         case 7:
           DEBUGSR_PRINTLN(F("AR: A2DP Source"));
           {
@@ -1780,7 +1780,7 @@ class AudioReactive : public Usermod {
       oappend(SET_F("addOption(dd,'Generic I2S PDM',5);"));
     #endif
       oappend(SET_F("addOption(dd,'ES8388',6);"));
-    #if defined(WLED_ENABLE_A2DP) && defined(CONFIG_IDF_TARGET_ESP32S3)
+    #if defined(WLED_ENABLE_A2DP) && !defined(CONFIG_IDF_TARGET_ESP32S2) && !defined(CONFIG_IDF_TARGET_ESP32C3) && !defined(CONFIG_IDF_TARGET_ESP32S3)
       oappend(SET_F("addOption(dd,'A2DP',7);"));
     #endif
     
