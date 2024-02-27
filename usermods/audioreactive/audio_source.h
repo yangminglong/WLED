@@ -279,16 +279,14 @@ class A2DPSource : public AudioSource {
 
       if (xSemaphoreTake(xMutex, pdMS_TO_TICKS(50)) == pdPASS) { // try to enter critical section with a timeout of 50 milliseconds
         // copy to temp array, clear gbuffer
-        //gbuffer.copyToArray(subArray);
+        gbuffer.copyToArray(subArray);
         gbuffer.clear();
         xSemaphoreGive(xMutex); // leave critical section
       }
 
       // set output
       for (int i = 0; i < num_samples; i++) {
-        int16_t sample = postProcessSample(subArray[i]);  // perform postprocessing (needed for ADC samples)
-        buffer[i] = (float) sample;
-        buffer[i] *= _sampleScale;                              // scale samples
+        buffer[i] *= subArray[i]*_sampleScale;                              // scale samples
       }
     };
 
