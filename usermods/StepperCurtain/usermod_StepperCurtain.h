@@ -29,15 +29,9 @@
 #include <TMC2209.h>
 
 
-void IRAM_ATTR onEndstopInterrupt() {
-  StepperCurtainUsermod* mod = (StepperCurtainUsermod*)usermods.lookup(USERMOD_ID_STEPPER_CURTAIN);
-  mod->stopMove(true);
-}
+void IRAM_ATTR onEndstopInterrupt();
 
-void IRAM_ATTR onIndexCntInterrupt() {
-  StepperCurtainUsermod* mod = (StepperCurtainUsermod*)usermods.lookup(USERMOD_ID_STEPPER_CURTAIN);
-  mod->updateCnt();
-}
+void IRAM_ATTR onIndexCntInterrupt();
 
 class StepperCurtainUsermod : public Usermod {
 
@@ -165,13 +159,13 @@ private:
 
     ESP_LOGI(TAG, "setupButton.");
     btnConfigDown = {
-        .type = BUTTON_TYPE_GPIO,
-        .long_press_time = CONFIG_BUTTON_LONG_PRESS_TIME_MS,
-        .short_press_time = CONFIG_BUTTON_SHORT_PRESS_TIME_MS,
-        .gpio_button_config = {
-            .gpio_num = pinBtDn,
-            .active_level = 0,
-        },
+        BUTTON_TYPE_GPIO,
+        CONFIG_BUTTON_LONG_PRESS_TIME_MS,
+        CONFIG_BUTTON_SHORT_PRESS_TIME_MS,
+        {
+            pinBtDn,
+            0
+        }
     };
 
     btnConfigUp = btnConfigDown;
@@ -482,3 +476,13 @@ const char StepperCurtainUsermod::_pinEnd  [] PROGMEM = "Pin Endstop ";
 const char StepperCurtainUsermod::_maxPos  [] PROGMEM = "Limit Max Pos";
 const char StepperCurtainUsermod::_speed   [] PROGMEM = "Speed";
 const char StepperCurtainUsermod::_cPercent[] PROGMEM = "Current Percent";
+
+void IRAM_ATTR onEndstopInterrupt() {
+  StepperCurtainUsermod* mod = (StepperCurtainUsermod*)usermods.lookup(USERMOD_ID_STEPPER_CURTAIN);
+  mod->stopMove(true);
+}
+
+void IRAM_ATTR onIndexCntInterrupt() {
+  StepperCurtainUsermod* mod = (StepperCurtainUsermod*)usermods.lookup(USERMOD_ID_STEPPER_CURTAIN);
+  mod->updateCnt();
+}
